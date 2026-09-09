@@ -1,0 +1,948 @@
+{
+  "info": {
+    "_postman_id": "f8dc5f00-8a6d-4a56-a91a-9803beb737e8",
+    "name": "Blog",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "24742376"
+  },
+  "item": [
+    {
+      "name": "Admin_Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "pm.test(\"status is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "\r",
+              "pm.test(\"response has a message string\", function () {\r",
+              "    pm.expect(body.message).to.be.a(\"string\").and.to.eql(\"login successful\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"role is admin\", function () {\r",
+              " \r",
+              "pm.expect(body.data.role).to.eql(\"admin\")\r",
+              "\r",
+              "})\r",
+              "\r",
+              "pm.collectionVariables.set(\"admin-token\", body.token);\r",
+              "\r",
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NiwiZW1haWwiOiJhZG1pbkBibG9nLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc4NzcyNzc0OSwiZXhwIjoxNzg3ODE0MTQ5fQ.o2Hct6qHGrroqqCR3mwA_p6LYYDhDgpKwZLo3K7QtwA",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"email\": \"admin@example.com\",\r\n  \"password\": \"password123\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{Base_Url}}/api/auth/login",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "User_Register",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const lodash=require('lodash');\r",
+              "const randomNumber=lodash.random(100,999);\r",
+              "const email=\"limon+\"+randomNumber+\"@gmail.com\";\r",
+              "pm.collectionVariables.set(\"email\", email);"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "pm.test(\"Status code is 201\", function () {\r",
+              "    pm.response.to.have.status(201);\r",
+              "})\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"user registered successfully\");\r",
+              "})\r",
+              "\r",
+              "pm.test(\"Role is user\", function () {\r",
+              "    pm.expect(body.data.role).to.eql(\"user\");\r",
+              "});\r",
+              "\r",
+              "\r",
+              "pm.test(\"User is active\", function () {\r",
+              "    pm.expect(body.data.isActive).to.eql(true);\r",
+              "});\r",
+              "\r",
+              "pm.collectionVariables.set(\"userId\", body.data.id);"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"firstname\": \"limon\",\r\n  \"lastname\": \"boss\",\r\n  \"email\": \"{{email}}\",\r\n  \"password\": \"123456\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{Base_Url}}/api/auth/register",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "User_List",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"users found\");\r",
+              "});\r",
+              "\r",
+              "pm.collectionVariables.set(\"userId\", body.data[1].id);"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin-token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{Base_Url}}/api/users",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "users"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "User",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"user found\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Role is user\", function () {\r",
+              "    pm.expect(body.data.role).to.eql(\"user\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin-token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{Base_Url}}/api/users/{{userId}}",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "users",
+            "{{userId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "User_Status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"user activated\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Role is user\", function () {\r",
+              "    pm.expect(body.data.role).to.eql(\"user\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"User is active\", function () {\r",
+              "    pm.expect(body.data.isActive).to.eql(true);\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin-token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"isActive\": true }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{Base_Url}}/api/users/{{userId}}/status",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "users",
+            "{{userId}}",
+            "status"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "User_Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"login successful\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Role is user\", function () {\r",
+              "    pm.expect(body.data.role).to.eql(\"user\");\r",
+              "});\r",
+              "\r",
+              "pm.collectionVariables.set(\"user-token\", body.token);\r",
+              "\r",
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NiwiZW1haWwiOiJhZG1pbkBibG9nLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc4NzcyNzc0OSwiZXhwIjoxNzg3ODE0MTQ5fQ.o2Hct6qHGrroqqCR3mwA_p6LYYDhDgpKwZLo3K7QtwA",
+            "type": "text",
+            "disabled": true
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"email\": \"{{email}}\",\r\n  \"password\": \"123456\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{Base_Url}}/api/auth/login",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "User_Profile",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"profile found\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Role is user\", function () {\r",
+              "    pm.expect(body.data.role).to.eql(\"user\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user-token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{Base_Url}}/api/users/profile",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "users",
+            "profile"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update_User_Profile",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"profile updated\");\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Role is user\", function () {\r",
+              "    pm.expect(body.data.role).to.eql(\"user\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user-token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"firstname\": \"limon\",\r\n    \"lastname\": \"boss\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{Base_Url}}/api/users/profile/update",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "users",
+            "profile",
+            "update"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update_User_Password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"password updated\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user-token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"password\": \"123456\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{Base_Url}}/api/users/password",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "users",
+            "password"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Create_Blog",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 201\", function () {\r",
+              "    pm.response.to.have.status(201);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"blog created\");\r",
+              "});\r",
+              "\r",
+              "pm.collectionVariables.set(\"blogId\", body.data.id);\r",
+              "pm.collectionVariables.set(\"blogTitle\", body.data.blogTitle);\r",
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user-token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": " {\r\n    \"blogTitle\": \"Debugging Common API Errors\",\r\n    \"blog\": \"This article walks through frequent API issues like 4xx and 5xx status codes, timeout errors, and malformed request bodies, along with practical steps to diagnose and fix them.\",\r\n    \"category\": \"Testing-13\"\r\n }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{Base_Url}}/api/blogs/create",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "blogs",
+            "create"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update Blog",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"blog updated\");\r",
+              "});\r",
+              "\r",
+              "pm.collectionVariables.set(\"blogCategory\", body.data.category);"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user-token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"category\": \"Testing-14\"\r\n    \r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{Base_Url}}/api/blogs/update/{{blogId}}",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "blogs",
+            "update",
+            "{{blogId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete_Blog",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"blog deleted\");\r",
+              "});\r",
+              "\r",
+              "\r",
+              ""
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user-token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{Base_Url}}/api/blogs/delete/{{blogId}}\n",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "blogs",
+            "delete",
+            "{{blogId}}\n"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get_All_Blogs",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"blogs found\");\r",
+              "});\r",
+              "\r",
+              "\r",
+              "pm.collectionVariables.set(\"blogId\", body.data[0].id);\r",
+              "pm.collectionVariables.set(\"blogCategory\", body.data[0].category);"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{Base_Url}}/api/blogs",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "blogs"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get_Blog_by_ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"blog found\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{Base_Url}}/api/blogs/{{blogId}}",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "blogs",
+            "{{blogId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Search_Blog_by_Title",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"blogs found\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{Base_Url}}/api/blogs?title={{blogTitle}}",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "blogs"
+          ],
+          "query": [
+            {
+              "key": "title",
+              "value": "{{blogTitle}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Filter_Blogs_by_Category",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Status code is 200\", function () {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "pm.test(\"Response message is correct\", function () {\r",
+              "    pm.expect(body.message).to.eql(\"blogs found\");\r",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{Base_Url}}/api/blogs?category={{blogCategory}}",
+          "host": [
+            "{{Base_Url}}"
+          ],
+          "path": [
+            "api",
+            "blogs"
+          ],
+          "query": [
+            {
+              "key": "category",
+              "value": "{{blogCategory}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "Base_Url",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "admin-token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc4ODAwNjA4MCwiZXhwIjoxNzg4MDkyNDgwfQ.gtWkUHFGqUG1BHNyub_25C4jl0xJOof-75WU81buVQM"
+    },
+    {
+      "key": "user-token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjUsImVtYWlsIjoibGltb24rNDgyQGdtYWlsLmNvbSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzg4MDA2MDgxLCJleHAiOjE3ODgwOTI0ODF9.y51URgH09txa9jrUPbZuTE1dKX7LrV3Ry4y0_HjDBYI"
+    },
+    {
+      "key": "email",
+      "value": "limon+482@gmail.com"
+    },
+    {
+      "key": "userId",
+      "value": 2
+    },
+    {
+      "key": "blogId",
+      "value": 21
+    },
+    {
+      "key": "blogTitle",
+      "value": "Debugging Common API Errors"
+    },
+    {
+      "key": "blogCategory",
+      "value": "Testing-13"
+    }
+  ]
+}

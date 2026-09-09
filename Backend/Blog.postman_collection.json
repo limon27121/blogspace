@@ -1,0 +1,4287 @@
+{
+  "info": {
+    "_postman_id": "f8dc5f00-8a6d-4a56-a91a-9803beb737e8",
+    "name": "Blog Management API",
+    "description": "REST API for a blog application with three access levels — Guest, User and Admin.\n\n### Before running\n\n1. Start the API: `npm run dev` (defaults to `http://localhost:5000`).\n2. Register an account with the email `admin@example.com` and password `password123`, then promote it in MySQL:\n\n   ```sql\n   UPDATE users SET role = 'admin' WHERE email = 'admin@example.com';\n   ```\n3. Set the `Base_Url` collection variable if your server is not on port 5000.\n\n### Running\n\nRun the whole collection in order. Folder 1 captures every token and id that folders 2–5 depend on, so individual requests will answer 401 if run on their own.\n\nThe suite is re-runnable: emails are generated fresh each run, user B is reactivated after being deactivated, and the destructive blog cases create their own throwaway rows.\n\n### What is asserted\n\nEvery request checks the status code, the exact response message, and at least one field of the returned data. Negative cases cover 400, 401, 403, 404 and 409. A collection-level script adds a JSON content-type check, a password-leak check and a response-time check to every request, so they can never be forgotten on a new one.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "24742376"
+  },
+  "item": [
+    {
+      "name": "1. Auth",
+      "description": "Registration and login. Run this folder first: it captures every token and id the later folders depend on.",
+      "item": [
+        {
+          "name": "1.1 Register user A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const lodash = require(\"lodash\");",
+                  "const suffix = lodash.random(100000, 999999);",
+                  "",
+                  "// a fresh email every run, so re-running the collection never trips the 409",
+                  "pm.collectionVariables.set(\"emailA\", \"limon+a\" + suffix + \"@gmail.com\");",
+                  "pm.collectionVariables.set(\"password\", \"password123\");"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"user registered successfully\");",
+                  "});",
+                  "",
+                  "pm.test(\"1.1 the created user echoes the email that was sent\", function () {",
+                  "    pm.expect(body.data.id).to.be.a(\"number\");",
+                  "    pm.expect(body.data.email).to.eql(pm.collectionVariables.get(\"emailA\"));",
+                  "});",
+                  "",
+                  "pm.test(\"1.2 a new user defaults to role user and active\", function () {",
+                  "    pm.expect(body.data.role).to.eql(\"user\");",
+                  "    pm.expect(body.data.isActive).to.eql(true);",
+                  "});",
+                  "",
+                  "if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set(\"userId\", body.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/register",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Limon\",\n  \"lastname\": \"Boss\",\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Creates the main test user. The email is generated in the pre-request script so the collection can be re-run without hitting a duplicate-email 409.\n\nCaptures `userId`, `emailA` and `password`."
+          },
+          "response": []
+        },
+        {
+          "name": "1.2 Register user B",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const lodash = require(\"lodash\");",
+                  "const suffix = lodash.random(100000, 999999);",
+                  "pm.collectionVariables.set(\"emailB\", \"limon+b\" + suffix + \"@gmail.com\");"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set(\"userBId\", body.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/register",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Second\",\n  \"lastname\": \"User\",\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "A second normal user. This is what makes the 403 tests meaningful — without it there is no way to tell \"the owner may edit\" from \"anyone may edit\"."
+          },
+          "response": []
+        },
+        {
+          "name": "1.3 Register with an already used email returns 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"email already registered\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/register",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Limon\",\n  \"lastname\": \"Boss\",\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Re-sends user A's email. Email uniqueness is a stated requirement."
+          },
+          "response": []
+        },
+        {
+          "name": "1.4 A user cannot register themselves as admin",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const lodash = require(\"lodash\");",
+                  "pm.collectionVariables.set(\"emailEscalate\", \"limon+esc\" + lodash.random(100000, 999999) + \"@gmail.com\");"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"1.9 a client-supplied role is ignored\", function () {",
+                  "    pm.expect(body.data.role).to.eql(\"user\");",
+                  "});",
+                  "",
+                  "pm.test(\"1.9b a client-supplied isActive is ignored\", function () {",
+                  "    pm.expect(body.data.isActive).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/register",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Sneaky\",\n  \"lastname\": \"User\",\n  \"email\": \"{{emailEscalate}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"admin\",\n  \"isActive\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Privilege escalation test. Sends `\"role\": \"admin\"` in the body. The account must still be created, but as a normal user.\n\nThis is the case a careless implementation fails while every other test still passes."
+          },
+          "response": []
+        },
+        {
+          "name": "1.5 Password under 6 characters returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"password must be at least 6 characters\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/register",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Short\",\n  \"lastname\": \"Pass\",\n  \"email\": \"limon+short@gmail.com\",\n  \"password\": \"123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Minimum password length is 6."
+          },
+          "response": []
+        },
+        {
+          "name": "1.6 Missing required field returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"firstname, email and password are required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/register",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"No\",\n  \"lastname\": \"Password\",\n  \"email\": \"limon+nopass@gmail.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Password omitted entirely."
+          },
+          "response": []
+        },
+        {
+          "name": "1.7 Invalid email format returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"email must be a valid email address\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/register",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Bad\",\n  \"lastname\": \"Email\",\n  \"email\": \"not-an-email\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Caught by the Sequelize `isEmail` validator and mapped to a 400 by the error middleware."
+          },
+          "response": []
+        },
+        {
+          "name": "1.8 Admin login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "// captured before the assertions, so a later failure still leaves the token set",
+                  "if (body.token) {",
+                  "    pm.collectionVariables.set(\"admin-token\", body.token);",
+                  "    pm.collectionVariables.set(\"adminId\", body.data.id);",
+                  "}",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"login successful\");",
+                  "});",
+                  "",
+                  "pm.test(\"2.1 token is a non-empty string with three parts\", function () {",
+                  "    pm.expect(body.token).to.be.a(\"string\").and.to.have.length.above(0);",
+                  "    pm.expect(body.token.split(\".\")).to.have.lengthOf(3);",
+                  "});",
+                  "",
+                  "pm.test(\"2.2 data carries exactly the safe user fields\", function () {",
+                  "    pm.expect(Object.keys(body.data)).to.have.members([\"id\", \"firstname\", \"lastname\", \"email\", \"role\"]);",
+                  "    pm.expect(body.data.role).to.eql(\"admin\");",
+                  "});",
+                  "",
+                  "pm.test(\"2.3 token payload matches the response body\", function () {",
+                  "    const payload = JSON.parse(atob(body.token.split(\".\")[1]));",
+                  "    pm.expect(payload.id).to.eql(body.data.id);",
+                  "    pm.expect(payload.role).to.eql(\"admin\");",
+                  "    pm.expect(payload.email).to.eql(body.data.email);",
+                  "});",
+                  "",
+                  "pm.test(\"2.3b token expires one day after it was issued\", function () {",
+                  "    const payload = JSON.parse(atob(body.token.split(\".\")[1]));",
+                  "    pm.expect(payload.exp - payload.iat).to.eql(86400);",
+                  "});",
+                  "",
+                  "pm.test(\"2.3c token payload carries no password\", function () {",
+                  "    const payload = JSON.parse(atob(body.token.split(\".\")[1]));",
+                  "    pm.expect(payload).to.not.have.property(\"password\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Logs in the seeded admin and captures `admin-token`.\n\nThe admin account is created by registering normally and then promoting the row in MySQL — there is no API that grants the admin role."
+          },
+          "response": []
+        },
+        {
+          "name": "1.9 User A login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "if (body.token) {",
+                  "    pm.collectionVariables.set(\"user-token\", body.token);",
+                  "}",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"login successful\");",
+                  "});",
+                  "",
+                  "pm.test(\"the token belongs to user A\", function () {",
+                  "    pm.expect(body.data.role).to.eql(\"user\");",
+                  "    pm.expect(body.data.id).to.eql(pm.collectionVariables.get(\"userId\"));",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Captures `user-token`, used by every User-level request below."
+          },
+          "response": []
+        },
+        {
+          "name": "1.10 User B login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "if (body.token) {",
+                  "    pm.collectionVariables.set(\"userB-token\", body.token);",
+                  "}",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Captures `userB-token`, used to prove user A's blog is protected from another normal user."
+          },
+          "response": []
+        },
+        {
+          "name": "1.11 Wrong password returns 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"invalid email or password\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"wrongPassword\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Correct email, wrong password."
+          },
+          "response": []
+        },
+        {
+          "name": "1.12 An unregistered email returns the same 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"invalid email or password\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nobody+unknown@gmail.com\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Must return the identical message as 1.11. Different messages would let an attacker discover which emails are registered — asserting they match is what makes this a security test rather than a duplicate check."
+          },
+          "response": []
+        },
+        {
+          "name": "1.13 Login without credentials returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"email and password are required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Empty body."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Users (Admin)",
+      "description": "Admin-only user management. Requires `admin-token` from folder 1.",
+      "item": [
+        {
+          "name": "2.1 Admin can list all users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"users found\");",
+                  "});",
+                  "",
+                  "pm.test(\"3.1 data is a non-empty array\", function () {",
+                  "    pm.expect(body.data).to.be.an(\"array\").and.to.have.length.above(0);",
+                  "});",
+                  "",
+                  "pm.test(\"3.3 each user has the expected shape\", function () {",
+                  "    const user = body.data[0];",
+                  "    [\"id\", \"firstname\", \"email\", \"role\", \"isActive\"].forEach(function (key) {",
+                  "        pm.expect(user).to.have.property(key);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"3.2 the list exposes no password or hash\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "    pm.expect(pm.response.text()).to.not.include(\"$2b$\");",
+                  "});",
+                  "",
+                  "pm.test(\"meta reports a total\", function () {",
+                  "    pm.expect(body.meta.total).to.be.a(\"number\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Returns every registered user plus a `meta` block. Passwords must never appear.\n\nAdd `?page=1&limit=10` to opt into pagination."
+          },
+          "response": []
+        },
+        {
+          "name": "2.2 Listing users without a token returns 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"authorization token is required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/users",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "No Authorization header at all. A different failure from 2.3 — missing credentials, not insufficient rights."
+          },
+          "response": []
+        },
+        {
+          "name": "2.3 A normal user cannot list users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"admin access required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Valid token, wrong role. Asserting 401 and 403 as distinct codes proves the middleware chain runs in the right order."
+          },
+          "response": []
+        },
+        {
+          "name": "2.4 Admin can fetch a user by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"user found\");",
+                  "});",
+                  "",
+                  "pm.test(\"4.1 the returned id matches the one requested\", function () {",
+                  "    pm.expect(body.data.id).to.eql(pm.collectionVariables.get(\"userId\"));",
+                  "});",
+                  "",
+                  "pm.test(\"4.2 no password field\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/{{userId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "description": "Fetches user A by the id captured at registration."
+          },
+          "response": []
+        },
+        {
+          "name": "2.5 A non-existent id returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"user not found\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/999999",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "999999"
+              ]
+            },
+            "description": "Valid request, no such row."
+          },
+          "response": []
+        },
+        {
+          "name": "2.6 A non-numeric id returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"user id must be a positive integer\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/abc",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "abc"
+              ]
+            },
+            "description": "The request itself is malformed. Commonly implemented as the same code as 2.5 — they are different failures."
+          },
+          "response": []
+        },
+        {
+          "name": "2.7 A normal user cannot fetch another user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"admin access required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/{{userBId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userBId}}"
+              ]
+            },
+            "description": "Admin-only route reached with a user token."
+          },
+          "response": []
+        },
+        {
+          "name": "2.8 Admin can deactivate a user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"user deactivated\");",
+                  "});",
+                  "",
+                  "pm.test(\"5.1 isActive is now false\", function () {",
+                  "    pm.expect(body.data.isActive).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/{{userBId}}/status",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userBId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Deactivates user B. User B is used here rather than user A so that A's token stays valid for the rest of the run.\n\n2.8 through 2.11 are one chain and the most valuable sequence in the suite: it proves the flag is not merely stored but actually enforced at login."
+          },
+          "response": []
+        },
+        {
+          "name": "2.9 A deactivated user can no longer log in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"this account has been deactivated\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The assertion that turns 2.8 from a stored flag into an enforced rule. Without this, 2.8 would pass even if login ignored the column entirely."
+          },
+          "response": []
+        },
+        {
+          "name": "2.10 Admin can reactivate a user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"user activated\");",
+                  "});",
+                  "",
+                  "pm.test(\"5.3 isActive is true again\", function () {",
+                  "    pm.expect(body.data.isActive).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/{{userBId}}/status",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userBId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Also leaves the data clean so the collection can be re-run."
+          },
+          "response": []
+        },
+        {
+          "name": "2.11 A reactivated user can log in again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "if (body.token) {",
+                  "    pm.collectionVariables.set(\"userB-token\", body.token);",
+                  "}",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"5.4 a token comes back\", function () {",
+                  "    pm.expect(body.token).to.be.a(\"string\").and.to.have.length.above(0);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Closes the chain and refreshes `userB-token`."
+          },
+          "response": []
+        },
+        {
+          "name": "2.12 A non-boolean isActive returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"isActive must be true or false\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/{{userBId}}/status",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userBId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": \"yes\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The string \"yes\" is not a boolean."
+          },
+          "response": []
+        },
+        {
+          "name": "2.13 A normal user cannot change a status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"admin access required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/{{userBId}}/status",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{userBId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Admin-only route reached with a user token."
+          },
+          "response": []
+        },
+        {
+          "name": "2.14 An admin cannot deactivate their own account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"an admin cannot change their own status\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/{{adminId}}/status",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{adminId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Otherwise the only account able to manage the others could lock itself out."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Profile (User/Admin)",
+      "description": "Self-service endpoints. The row is chosen by the token, so no id appears in any path here.",
+      "item": [
+        {
+          "name": "3.1 A user can read their own profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"profile found\");",
+                  "});",
+                  "",
+                  "pm.test(\"6.1 the profile belongs to the token holder, not the first row\", function () {",
+                  "    const token = pm.collectionVariables.get(\"user-token\");",
+                  "    const payload = JSON.parse(atob(token.split(\".\")[1]));",
+                  "    pm.expect(body.data.id).to.eql(payload.id);",
+                  "});",
+                  "",
+                  "pm.test(\"6.2 no password field\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile"
+              ]
+            },
+            "description": "Answered from the id inside the token, so this route can only ever return the caller's own row."
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 A profile request without a token returns 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"authorization token is required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile"
+              ]
+            },
+            "description": "No Authorization header."
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 An admin token returns the admin's own profile, not a list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"6.4 data is a single object with role admin\", function () {",
+                  "    pm.expect(body.data).to.be.an(\"object\");",
+                  "    pm.expect(body.data).to.not.be.an(\"array\");",
+                  "    pm.expect(body.data.role).to.eql(\"admin\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile"
+              ]
+            },
+            "description": "The same route for an admin must still be self-service."
+          },
+          "response": []
+        },
+        {
+          "name": "3.4 A user can update their own name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"profile updated\");",
+                  "});",
+                  "",
+                  "pm.test(\"7.1 both fields equal what was sent\", function () {",
+                  "    pm.expect(body.data.firstname).to.eql(\"Updated\");",
+                  "    pm.expect(body.data.lastname).to.eql(\"Name\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile/update",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Updated\",\n  \"lastname\": \"Name\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Only firstname, lastname and email are editable through this endpoint."
+          },
+          "response": []
+        },
+        {
+          "name": "3.5 The update persists after a re-read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"7.2 the new values come back on a fresh read\", function () {",
+                  "    pm.expect(body.data.firstname).to.eql(\"Updated\");",
+                  "    pm.expect(body.data.lastname).to.eql(\"Name\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile"
+              ]
+            },
+            "description": "A 200 on the write alone does not prove anything was saved."
+          },
+          "response": []
+        },
+        {
+          "name": "3.6 Sending role is rejected with 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"7.3 the message names the blocked field\", function () {",
+                  "    pm.expect(body.message).to.include(\"role\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile/update",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"Updated\",\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Refused out loud rather than dropped quietly, so a caller trying to promote itself gets a 403 instead of a 200 that looks like it worked."
+          },
+          "response": []
+        },
+        {
+          "name": "3.7 Sending isActive is rejected with 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"7.4 the message names the blocked field\", function () {",
+                  "    pm.expect(body.message).to.include(\"isActive\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile/update",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "isActive moves only through the admin status endpoint."
+          },
+          "response": []
+        },
+        {
+          "name": "3.8 Role is unchanged after a rejected attempt",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"7.5 role is still user and the account is still active\", function () {",
+                  "    pm.expect(body.data.role).to.eql(\"user\");",
+                  "    pm.expect(body.data.isActive).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile"
+              ]
+            },
+            "description": "The assertion most people leave out. A 403 alone does not prove the database was untouched — re-reading the profile is what turns 3.6 into a real security test."
+          },
+          "response": []
+        },
+        {
+          "name": "3.9 An empty body returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"provide at least one of firstname, lastname or email\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile/update",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "A body with none of the editable fields would otherwise report success while changing nothing."
+          },
+          "response": []
+        },
+        {
+          "name": "3.10 A blank firstname returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"firstname cannot be empty\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile/update",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstname\": \"   \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Whitespace only is not a name."
+          },
+          "response": []
+        },
+        {
+          "name": "3.11 Updating to another user's email returns 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"email already registered\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile/update",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailB}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "User A tries to take user B's address."
+          },
+          "response": []
+        },
+        {
+          "name": "3.12 A user can change their own password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"password updated\");",
+                  "});",
+                  "",
+                  "pm.test(\"8.2 the response carries no hash\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.include(\"$2b$\");",
+                  "    pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/password",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"newPassword123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The new password is taken straight from the payload — the assignment specifies no current-password check. Only the id comes back, never the hash."
+          },
+          "response": []
+        },
+        {
+          "name": "3.13 The old password no longer works",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"invalid email or password\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "3.12 passing on its own would still be true if the handler returned 200 and saved nothing. This is the actual test."
+          },
+          "response": []
+        },
+        {
+          "name": "3.14 The new password works",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "if (body.token) {",
+                  "    pm.collectionVariables.set(\"user-token\", body.token);",
+                  "    pm.collectionVariables.set(\"password\", \"newPassword123\");",
+                  "}",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"8.4 a token comes back\", function () {",
+                  "    pm.expect(body.token).to.be.a(\"string\").and.to.have.length.above(0);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"newPassword123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Refreshes `user-token` and stores the new password, so every later request keeps working."
+          },
+          "response": []
+        },
+        {
+          "name": "3.15 A password under 6 characters is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"password must be at least 6 characters\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/password",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"abc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Same rule as registration — both go through one hashing function."
+          },
+          "response": []
+        },
+        {
+          "name": "3.16 A missing password field returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"password is required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/password",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Empty body."
+          },
+          "response": []
+        },
+        {
+          "name": "3.17 A password change without a token returns 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"authorization token is required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/password",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"newPassword123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "No Authorization header."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Blogs",
+      "description": "Blog create, read, search, update and delete. The public reads need no token; every write does.",
+      "item": [
+        {
+          "name": "4.1 A user can create a blog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blog created\");",
+                  "});",
+                  "",
+                  "pm.test(\"9.2 the blog belongs to the authenticated user\", function () {",
+                  "    const token = pm.collectionVariables.get(\"user-token\");",
+                  "    const payload = JSON.parse(atob(token.split(\".\")[1]));",
+                  "    pm.expect(body.data.userId).to.eql(payload.id);",
+                  "});",
+                  "",
+                  "if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set(\"blogId\", body.data.id);",
+                  "    pm.collectionVariables.set(\"blogTitle\", body.data.blogTitle);",
+                  "    pm.collectionVariables.set(\"blogCategory\", body.data.category);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/create",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blogTitle\": \"Debugging Common API Errors\",\n  \"blog\": \"This article walks through frequent API issues like 4xx and 5xx status codes, timeout errors and malformed request bodies, along with practical steps to diagnose and fix them.\",\n  \"category\": \"Testing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`userId` is taken from the token inside the service, never from the body.\n\nNote the status is **201**, not 200 — a create returning 200 is a common slip.\n\nCaptures `blogId` and `blogTitle`."
+          },
+          "response": []
+        },
+        {
+          "name": "4.2 A client-supplied userId is ignored",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"9.3 userId comes from the token, not the body\", function () {",
+                  "    const token = pm.collectionVariables.get(\"user-token\");",
+                  "    const payload = JSON.parse(atob(token.split(\".\")[1]));",
+                  "    pm.expect(body.data.userId).to.eql(payload.id);",
+                  "    pm.expect(body.data.userId).to.not.eql(pm.collectionVariables.get(\"userBId\"));",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/create",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blogTitle\": \"Spoofed Ownership Attempt\",\n  \"blog\": \"The userId in this body names another user and must be ignored.\",\n  \"category\": \"Security\",\n  \"userId\": {{userBId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Ownership spoofing test — the blog equivalent of 1.4, and the same class of bug: trusting a field from the request body instead of the token.\n\nSends user B's id. The blog must still belong to user A."
+          },
+          "response": []
+        },
+        {
+          "name": "4.3 A blog cannot be created without a token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"authorization token is required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/create",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blogTitle\": \"No Token\",\n  \"blog\": \"Should never be stored.\",\n  \"category\": \"Testing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "No Authorization header."
+          },
+          "response": []
+        },
+        {
+          "name": "4.4 An empty blogTitle returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blogTitle cannot be empty\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/create",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blogTitle\": \"   \",\n  \"blog\": \"Body is fine.\",\n  \"category\": \"Testing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Whitespace only is not a title."
+          },
+          "response": []
+        },
+        {
+          "name": "4.5 A missing category returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"category cannot be empty\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/create",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blogTitle\": \"No Category\",\n  \"blog\": \"Body is fine.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "All three text fields are required on create."
+          },
+          "response": []
+        },
+        {
+          "name": "4.6 A guest can list blogs without a token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"10.1 data is a non-empty array\", function () {",
+                  "    pm.expect(body.data).to.be.an(\"array\").and.to.have.length.above(0);",
+                  "});",
+                  "",
+                  "pm.test(\"10.2 each blog includes an author object\", function () {",
+                  "    pm.expect(body.data[0].author).to.be.an(\"object\");",
+                  "});",
+                  "",
+                  "pm.test(\"10.3 the author exposes exactly id, firstname and lastname\", function () {",
+                  "    pm.expect(Object.keys(body.data[0].author)).to.have.members([\"id\", \"firstname\", \"lastname\"]);",
+                  "});",
+                  "",
+                  "pm.test(\"10.4 the public list leaks no email or password\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.include('\"email\"');",
+                  "    pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "    pm.expect(pm.response.text()).to.not.include(\"$2b$\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs"
+              ]
+            },
+            "description": "Public. Each blog carries an author object limited to id, firstname and lastname."
+          },
+          "response": []
+        },
+        {
+          "name": "4.7 A guest can read a single blog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blog found\");",
+                  "});",
+                  "",
+                  "pm.test(\"11.1 the returned id matches the one requested\", function () {",
+                  "    pm.expect(body.data.id).to.eql(pm.collectionVariables.get(\"blogId\"));",
+                  "});",
+                  "",
+                  "pm.test(\"11.2 the author exposes exactly the safe fields\", function () {",
+                  "    pm.expect(Object.keys(body.data.author)).to.have.members([\"id\", \"firstname\", \"lastname\"]);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "{{blogId}}"
+              ]
+            },
+            "description": "Public read by id."
+          },
+          "response": []
+        },
+        {
+          "name": "4.8 A non-existent blog returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blog not found\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/999999",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "999999"
+              ]
+            },
+            "description": "Valid id shape, no such row."
+          },
+          "response": []
+        },
+        {
+          "name": "4.9 A non-numeric blog id returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blog id must be a positive integer\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/abc",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "abc"
+              ]
+            },
+            "description": "Malformed id."
+          },
+          "response": []
+        },
+        {
+          "name": "4.10 Search by partial title returns only matching blogs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"10.5 every returned title contains the search term\", function () {",
+                  "    pm.expect(body.data).to.have.length.above(0);",
+                  "    body.data.forEach(function (blog) {",
+                  "        pm.expect(blog.blogTitle.toLowerCase()).to.include(\"debugging\");",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs?title=Debugging",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs"
+              ],
+              "query": [
+                {
+                  "key": "title",
+                  "value": "Debugging"
+                }
+              ]
+            },
+            "description": "A **fragment** of the title, not the whole thing — searching the full title would pass even if the API did an exact match.\n\nThe test loops over every result. Asserting `data.length > 0` would pass even if the filter were ignored entirely."
+          },
+          "response": []
+        },
+        {
+          "name": "4.11 Filter by category returns only that category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"10.6 every returned blog is in the requested category\", function () {",
+                  "    pm.expect(body.data).to.have.length.above(0);",
+                  "    body.data.forEach(function (blog) {",
+                  "        pm.expect(blog.category).to.eql(\"Testing\");",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs?category=Testing",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "Testing"
+                }
+              ]
+            },
+            "description": "Category is an exact match, unlike title."
+          },
+          "response": []
+        },
+        {
+          "name": "4.12 Title and category filters combine",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"10.7 every item satisfies both filters\", function () {",
+                  "    body.data.forEach(function (blog) {",
+                  "        pm.expect(blog.blogTitle.toLowerCase()).to.include(\"debugging\");",
+                  "        pm.expect(blog.category).to.eql(\"Testing\");",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs?title=Debugging&category=Testing",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs"
+              ],
+              "query": [
+                {
+                  "key": "title",
+                  "value": "Debugging"
+                },
+                {
+                  "key": "category",
+                  "value": "Testing"
+                }
+              ]
+            },
+            "description": "Both filters at once. Every item must satisfy both."
+          },
+          "response": []
+        },
+        {
+          "name": "4.13 A search with no matches returns 200 and an empty array",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"10.8 the array is empty and the status is not 404\", function () {",
+                  "    pm.expect(body.data).to.be.an(\"array\").and.to.have.lengthOf(0);",
+                  "    pm.expect(pm.response.code).to.not.eql(404);",
+                  "});",
+                  "",
+                  "pm.test(\"the wording reflects the empty result\", function () {",
+                  "    pm.expect(body.message).to.eql(\"no blogs matched\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs?title=zzzzznomatch",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs"
+              ],
+              "query": [
+                {
+                  "key": "title",
+                  "value": "zzzzznomatch"
+                }
+              ]
+            },
+            "description": "An empty search result is a successful search — **not** a 404."
+          },
+          "response": []
+        },
+        {
+          "name": "4.14 Another user cannot update someone else's blog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"You are not authorized to update this blog.\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userB-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/update/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "update",
+                "{{blogId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blogTitle\": \"Hijacked By User B\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "User B tries to edit user A's blog. Paired with 4.16 and 4.17, this proves the rule is \"owner **or** admin\" rather than \"anyone with a token\"."
+          },
+          "response": []
+        },
+        {
+          "name": "4.15 The blog is unchanged after a rejected update",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"12.3 the title is still the original\", function () {",
+                  "    pm.expect(body.data.blogTitle).to.eql(pm.collectionVariables.get(\"blogTitle\"));",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "{{blogId}}"
+              ]
+            },
+            "description": "A 403 alone does not prove the row was untouched."
+          },
+          "response": []
+        },
+        {
+          "name": "4.16 The owner can update their own blog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blog updated\");",
+                  "});",
+                  "",
+                  "pm.test(\"12.1 the changed field matches what was sent\", function () {",
+                  "    pm.expect(body.data.category).to.eql(\"Automation\");",
+                  "});",
+                  "",
+                  "pm.test(\"the untouched field is preserved\", function () {",
+                  "    pm.expect(body.data.blogTitle).to.eql(pm.collectionVariables.get(\"blogTitle\"));",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/update/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "update",
+                "{{blogId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Automation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update — only the fields present in the body change."
+          },
+          "response": []
+        },
+        {
+          "name": "4.17 An admin can update any user's blog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"12.4 the admin's change was applied\", function () {",
+                  "    pm.expect(body.data.category).to.eql(\"Testing\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/update/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "update",
+                "{{blogId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Testing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Same blog, admin token. This is the half of the ownership rule that 4.14 alone cannot prove. It also restores the category so 4.11 keeps matching on a re-run."
+          },
+          "response": []
+        },
+        {
+          "name": "4.18 The blog's author cannot be reassigned",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"12.7 userId is unchanged\", function () {",
+                  "    pm.expect(body.data.userId).to.eql(pm.collectionVariables.get(\"userId\"));",
+                  "    pm.expect(body.data.userId).to.not.eql(pm.collectionVariables.get(\"userBId\"));",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/update/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "update",
+                "{{blogId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blogTitle\": \"{{blogTitle}}\",\n  \"userId\": {{userBId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Sends user B's id. `userId` is never written by the update service, so ownership must not move."
+          },
+          "response": []
+        },
+        {
+          "name": "4.19 Updating a non-existent blog returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blog not found\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/update/999999",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "update",
+                "999999"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Testing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Must be 404, not 403 — answering 403 for an id that does not exist would tell a caller which ids are real. The service looks the row up *before* checking ownership for exactly this reason."
+          },
+          "response": []
+        },
+        {
+          "name": "4.20 An update without a token returns 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"authorization token is required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/update/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "update",
+                "{{blogId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Testing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "No Authorization header."
+          },
+          "response": []
+        },
+        {
+          "name": "4.21 An update with no editable field returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"provide at least one of blogTitle, blog or category\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/update/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "update",
+                "{{blogId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "An empty body would otherwise report success while changing nothing."
+          },
+          "response": []
+        },
+        {
+          "name": "4.22 Another user cannot delete someone else's blog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"You are not authorized to delete this blog.\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userB-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/delete/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "delete",
+                "{{blogId}}"
+              ]
+            },
+            "description": "The negative cases run before the destructive ones, so the blog still exists to be tested against."
+          },
+          "response": []
+        },
+        {
+          "name": "4.23 The blog still exists after a rejected delete",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"13.2 the blog is still there\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(body.data.id).to.eql(pm.collectionVariables.get(\"blogId\"));",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "{{blogId}}"
+              ]
+            },
+            "description": "A delete endpoint that returns 403 but deletes anyway would pass a status-code-only test. This is what catches it."
+          },
+          "response": []
+        },
+        {
+          "name": "4.24 The owner can delete their own blog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blog deleted\");",
+                  "});",
+                  "",
+                  "pm.test(\"13.3 the deleted id matches\", function () {",
+                  "    pm.expect(body.data.id).to.eql(pm.collectionVariables.get(\"blogId\"));",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/delete/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "delete",
+                "{{blogId}}"
+              ]
+            },
+            "description": "Returns only the deleted id."
+          },
+          "response": []
+        },
+        {
+          "name": "4.25 A deleted blog is really gone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blog not found\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "{{blogId}}"
+              ]
+            },
+            "description": "A delete that returns 200 and deletes nothing would pass a status-code-only test."
+          },
+          "response": []
+        },
+        {
+          "name": "4.26 Deleting an already deleted blog returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blog not found\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/delete/{{blogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "delete",
+                "{{blogId}}"
+              ]
+            },
+            "description": "Repeat of 4.24."
+          },
+          "response": []
+        },
+        {
+          "name": "4.27 Create a throwaway blog for the admin delete",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set(\"throwawayBlogId\", body.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/create",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blogTitle\": \"Throwaway For Admin Delete\",\n  \"blog\": \"Created by user A so that an admin can delete another user's blog.\",\n  \"category\": \"Testing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Owned by user A, so 4.28 proves an admin can delete someone else's blog. Created fresh each run so the suite stays re-runnable."
+          },
+          "response": []
+        },
+        {
+          "name": "4.28 An admin can delete any user's blog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"13.6 the admin deleted another user's blog\", function () {",
+                  "    pm.expect(body.message).to.eql(\"blog deleted\");",
+                  "    pm.expect(body.data.id).to.eql(pm.collectionVariables.get(\"throwawayBlogId\"));",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/delete/{{throwawayBlogId}}",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "delete",
+                "{{throwawayBlogId}}"
+              ]
+            },
+            "description": "Admin token, a blog owned by user A."
+          },
+          "response": []
+        },
+        {
+          "name": "4.29 A delete without a token returns 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"authorization token is required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/blogs/delete/1",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "blogs",
+                "delete",
+                "1"
+              ]
+            },
+            "description": "No Authorization header. The token check runs before the row is ever looked up, so this is 401 rather than 404."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Cross-cutting",
+      "description": "Behaviour that is not tied to a single endpoint.",
+      "item": [
+        {
+          "name": "5.1 An unknown route returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"route not found\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/nope",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "nope"
+              ]
+            },
+            "description": "Falls through every mounted router to the catch-all handler."
+          },
+          "response": []
+        },
+        {
+          "name": "5.2 A malformed JSON body returns 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"C.2 malformed JSON is a client error, not a server error\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"C.2b the message names the real problem\", function () {",
+                  "    pm.expect(pm.response.json().message).to.eql(\"request body is not valid JSON\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{Base_Url}}/api/auth/login",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{ bad json",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The raw body is deliberately invalid JSON. express.json() rejects it before any route runs, so it reaches the global error handler rather than a controller.\n\nBad input is a client fault, so the handler checks for `entity.parse.failed` and answers 400 instead of blaming the server with a 500."
+          },
+          "response": []
+        },
+        {
+          "name": "5.3 A tampered token returns 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const token = pm.collectionVariables.get(\"user-token\");",
+                  "const last = token.slice(-1) === \"A\" ? \"B\" : \"A\";",
+                  "pm.collectionVariables.set(\"tamperedToken\", token.slice(0, -1) + last);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"invalid or expired token\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tamperedToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile"
+              ]
+            },
+            "description": "Takes the valid user token and flips its last character in the pre-request script. Proves the server verifies the signature instead of merely decoding the payload."
+          },
+          "response": []
+        },
+        {
+          "name": "5.4 A header without the Bearer prefix returns 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"message is the expected one\", function () {",
+                  "    pm.expect(body.message).to.eql(\"authorization token is required\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{user-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/profile",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile"
+              ]
+            },
+            "description": "The raw token with no scheme."
+          },
+          "response": []
+        },
+        {
+          "name": "5.5 An error response leaks no stack trace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const raw = pm.response.text();",
+                  "",
+                  "pm.test(\"C.5 the body carries no stack trace or SQL\", function () {",
+                  "    pm.expect(raw).to.not.include(\"node_modules\");",
+                  "    pm.expect(raw).to.not.include(\"    at \");",
+                  "    pm.expect(raw).to.not.include(\"SELECT \");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin-token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{Base_Url}}/api/users/abc",
+              "host": [
+                "{{Base_Url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "abc"
+              ]
+            },
+            "description": "Any 4xx must carry a message and nothing else — no file paths, no SQL, no stack frames."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// nothing runs globally before a request"
+        ],
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {}
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "exec": [
+          "// Runs after every request in the collection.",
+          "",
+          "pm.test(\"[all] response is JSON\", function () {",
+          "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+          "});",
+          "",
+          "pm.test(\"[all] response carries a message string\", function () {",
+          "    pm.expect(pm.response.json().message).to.be.a(\"string\");",
+          "});",
+          "",
+          "pm.test(\"[all] no password or hash anywhere in the response\", function () {",
+          "    pm.expect(pm.response.text()).to.not.include('\"password\"');",
+          "    pm.expect(pm.response.text()).to.not.include(\"$2b$\");",
+          "});",
+          "",
+          "pm.test(\"[all] responds in under 1000 ms\", function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+          "});"
+        ],
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {}
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "Base_Url",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "admin-token",
+      "value": ""
+    },
+    {
+      "key": "user-token",
+      "value": ""
+    },
+    {
+      "key": "userB-token",
+      "value": ""
+    },
+    {
+      "key": "tamperedToken",
+      "value": ""
+    },
+    {
+      "key": "adminId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "userBId",
+      "value": ""
+    },
+    {
+      "key": "emailA",
+      "value": ""
+    },
+    {
+      "key": "emailB",
+      "value": ""
+    },
+    {
+      "key": "emailEscalate",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "blogId",
+      "value": ""
+    },
+    {
+      "key": "blogTitle",
+      "value": ""
+    },
+    {
+      "key": "blogCategory",
+      "value": ""
+    },
+    {
+      "key": "throwawayBlogId",
+      "value": ""
+    }
+  ]
+}

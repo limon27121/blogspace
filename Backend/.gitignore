@@ -24,3 +24,6 @@ build/
 
 # Newman generated reports
 newman/
+
+# uploaded files are user data, not source
+uploads/

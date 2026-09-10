@@ -23,6 +23,21 @@ export const changePassword = (password) =>
     apiFetch("/users/password", { method: "PATCH", body: { password } })
 
 /**
+ * PATCH /api/users/profile/image — multipart, field name "image".
+ *
+ * The body is a FormData, which apiFetch detects: it must not set Content-Type
+ * by hand, because only the browser knows the multipart boundary it generated.
+ *
+ * @param {File} file
+ * @returns {Promise<{message: string, data: object}>} the updated user row
+ */
+export const updateProfileImage = (file) => {
+    const body = new FormData()
+    body.append("image", file)
+    return apiFetch("/users/profile/image", { method: "PATCH", body })
+}
+
+/**
  * GET /api/users — admin only. Supports page and limit; empty values are
  * dropped so the url stays clean when the caller passes nothing.
  */

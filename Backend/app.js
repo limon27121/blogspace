@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { UPLOAD_DIR } from "./middlewares/upload.middleware.js";
 import authRoute from "./routes/auth.route.js";
 import userRoute from "./routes/user.route.js";
 import blogRoute from "./routes/blogs.route.js";
@@ -34,6 +35,19 @@ app.use(
 );
 
 app.use(express.json()); // parse JSON request body
+
+// uploaded pictures are served as plain files. This is outside /api on
+// purpose: it is not an endpoint, it is the file itself, and an <img src> has
+// no token to send. Anyone with the exact filename can fetch it, which is the
+// same guarantee every avatar CDN gives.
+app.use("/uploads", express.static(UPLOAD_DIR, {
+    // a file here is never rewritten - a new upload gets a new name - so it can
+    // be cached hard
+    maxAge: "7d",
+    // stop express from guessing an html file into existence for /uploads/foo
+    fallthrough: true,
+    index: false,
+}));
 
 app.use("/api/auth", authRoute);
 app.use("/api/users", userRoute);

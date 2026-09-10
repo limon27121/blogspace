@@ -20,6 +20,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
     "mysql2": "^3.24.2",
+    "nodemailer": "^10.0.3",
     "sequelize": "^6.37.8"
   },
   "devDependencies": {

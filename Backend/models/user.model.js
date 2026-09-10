@@ -35,6 +35,28 @@ const User = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    // the uploaded file's public path, e.g. "/uploads/17-1712345678.png".
+    // nullable: an account with no picture is the normal case, and every
+    // reader falls back to initials
+    image: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
+    // the sha-256 of the token that was emailed, never the token itself. A
+    // stolen database dump then cannot be used to reset anyone's password, the
+    // same reason the password column holds a hash
+    resetTokenHash: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
+    // a reset link that never expires is a permanent second password
+    resetTokenExpiry: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+    },
     isActive: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -54,10 +76,12 @@ const User = sequelize.define(
     // the hash must never reach a response, so it is excluded by default and
     // only pulled in where the code explicitly asks for it (login)
     defaultScope: {
-      attributes: { exclude: ["password"] },
+      attributes: { exclude: ["password", "resetTokenHash", "resetTokenExpiry"] },
     },
     scopes: {
       withPassword: { attributes: { include: ["password"] } },
+      // only the reset flow opts into these
+      withResetToken: { attributes: { include: ["resetTokenHash", "resetTokenExpiry"] } },
     },
   }
 );

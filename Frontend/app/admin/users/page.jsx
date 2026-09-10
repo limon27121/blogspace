@@ -267,12 +267,11 @@ export default function AdminUsersPage() {
                                     </div>
                                     <div className="flex justify-between gap-4">
                                         <dt className="text-gray-500">Profile image</dt>
-                                        {/* §28 asks for it, but `users` has no image
-                                            column: the backend cannot store one until
-                                            Phase 17. Saying so beats showing a
-                                            placeholder that pretends to be a photo */}
+                                        {/* the avatar above already shows it; this row
+                                            says whether there is one at all, which the
+                                            initials circle cannot */}
                                         <dd className="text-right text-gray-600">
-                                            Not available yet
+                                            {detail.user.image ? "Uploaded" : "None"}
                                         </dd>
                                     </div>
                                     <div className="flex justify-between gap-4">

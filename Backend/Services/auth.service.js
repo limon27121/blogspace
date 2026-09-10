@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { User } from "../models/index.js";
@@ -92,4 +93,46 @@ export const login_user = async ({ email, password }) => {
             role: user.role,
         },
     }
+}
+
+// one hour. Long enough to walk to the inbox, short enough that a link left in
+// a mailbox is not a standing key to the account
+export const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+
+// what is emailed is the raw token; what is stored is this hash of it. A stolen
+// database dump therefore contains nothing that can reset a password
+export const hash_reset_token = (token) =>
+    crypto.createHash("sha256").update(token).digest("hex")
+
+/**
+ * Start a password reset.
+ *
+ * Returns { user, token } when a link should be sent, and null otherwise. The
+ * caller answers the same way either way: telling an anonymous caller whether
+ * an address is registered turns this endpoint into an account-discovery tool.
+ *
+ * @param {{ email: string }} params
+ */
+export const request_password_reset = async ({ email }) => {
+    if (typeof email !== "string" || email.trim() === "") {
+        throw new ServiceError(400, "email is required")
+    }
+
+    const user = await User.findOne({ where: { email: email.trim() } })
+
+    // no account, or a deactivated one: nothing is stored and nothing is sent,
+    // but the controller still replies with its neutral message
+    if (!user || !user.isActive) return null
+
+    // 32 random bytes, not a uuid or a counter: this is the only thing standing
+    // between a stranger and the account
+    const token = crypto.randomBytes(32).toString("hex")
+
+    user.resetTokenHash = hash_reset_token(token)
+    user.resetTokenExpiry = new Date(Date.now() + RESET_TOKEN_TTL_MS)
+    await user.save()
+
+    // asking again invalidates the previous link, because the column holds one
+    // hash and this overwrote it
+    return { user, token }
 }

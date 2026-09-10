@@ -5,8 +5,10 @@ import {
     update_profile,
     update_password,
     set_user_status,
+    update_profile_image,
 } from "../Services/user.service.js";
 import { send_error } from "../middlewares/error.middleware.js";
+import { remove_uploaded_file, looks_like_an_image } from "../middlewares/upload.middleware.js";
 
 // GET /api/users  (admin)
 export const get_users = async (req, res) => {
@@ -108,6 +110,49 @@ export const update_own_password = async (req, res) => {
             data: { id },
         })
     } catch (error) {
+        send_error(res, error)
+    }
+}
+
+// PATCH /api/users/profile/image
+// multer has already written the file and put it on req.file by the time this
+// runs; a rejected upload never reaches here, it is answered by the error
+// handler on the route
+export const update_own_image = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: "an image file is required" })
+        }
+
+        // the extension and the mimetype both came from the caller. The bytes
+        // did not, so they are what decides. A rejected file is deleted here:
+        // multer has already written it to disk by this point
+        if (!(await looks_like_an_image(req.file.path))) {
+            remove_uploaded_file("/uploads/" + req.file.filename)
+            return res.status(400).json({ message: "the uploaded file is not a valid image" })
+        }
+
+        // the public path, not the disk path: the client needs a URL it can put
+        // in an <img src>, and where the folder lives is nobody else's business
+        const image = "/uploads/" + req.file.filename
+
+        const { user, previous_image } = await update_profile_image({
+            requester: req.user,
+            image,
+        })
+
+        // the row already points at the new file, so the old one is unreachable
+        if (previous_image && previous_image !== image) {
+            remove_uploaded_file(previous_image)
+        }
+
+        res.status(200).json({
+            message: "profile image updated",
+            data: user,
+        })
+    } catch (error) {
+        // the row was not updated, so the file just written is an orphan
+        if (req.file) remove_uploaded_file("/uploads/" + req.file.filename)
         send_error(res, error)
     }
 }

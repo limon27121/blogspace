@@ -1,0 +1,293 @@
+{
+  "info": {
+    "name": "Profile Image Upload",
+    "description": "PATCH /api/users/profile/image - multipart upload, validation and static serving.\n\nRun from the Backend folder so the file paths in postman-assets/ resolve:\n\n  newman run ProfileImage.postman_collection.json\n\nIn the Postman app, the two file fields need re-selecting once (Postman does not store file contents in a collection): postman-assets/avatar.png and postman-assets/not-an-image.jpg.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "email", "value": "" },
+    { "key": "password", "value": "" },
+    { "key": "token", "value": "" },
+    { "key": "imagePath", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Register a user for this run",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// a fresh account each run, so re-running never trips the 409",
+              "const suffix = Math.floor(Math.random() * 900000 + 100000);",
+              "pm.collectionVariables.set(\"email\", `image.${suffix}@test.local`);",
+              "pm.collectionVariables.set(\"password\", \"secret123\");"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"a new account starts with no image\", () => pm.expect(body.data.image).to.equal(null));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstname\": \"Image\",\n  \"lastname\": \"Tester\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "2. Log in",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"a token comes back\", () => pm.expect(body.token).to.be.a(\"string\"));",
+              "pm.collectionVariables.set(\"token\", body.token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "3. Upload without a token is refused",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"and says why\", () => pm.expect(pm.response.json().message).to.match(/token/i));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/users/profile/image", "host": ["{{baseUrl}}"], "path": ["api", "users", "profile", "image"] },
+        "body": {
+          "mode": "formdata",
+          "formdata": [{ "key": "image", "type": "file", "src": "postman-assets/avatar.png" }]
+        }
+      }
+    },
+    {
+      "name": "4. No file at all is a 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"the message names the problem\", () => pm.expect(pm.response.json().message).to.equal(\"an image file is required\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/api/users/profile/image", "host": ["{{baseUrl}}"], "path": ["api", "users", "profile", "image"] },
+        "body": { "mode": "formdata", "formdata": [] }
+      }
+    },
+    {
+      "name": "5. The wrong field name is a 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"the message says which field is expected\", () => pm.expect(pm.response.json().message).to.match(/named \"image\"/));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/api/users/profile/image", "host": ["{{baseUrl}}"], "path": ["api", "users", "profile", "image"] },
+        "body": {
+          "mode": "formdata",
+          "formdata": [{ "key": "photo", "type": "file", "src": "postman-assets/avatar.png" }]
+        }
+      }
+    },
+    {
+      "name": "6. A text file renamed .jpg is refused",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// the extension and the Content-Type both come from the client, so the",
+              "// backend reads the bytes on disk before believing either one",
+              "pm.test(\"status is 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"the message says it is not an image\", () => pm.expect(pm.response.json().message).to.equal(\"the uploaded file is not a valid image\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/api/users/profile/image", "host": ["{{baseUrl}}"], "path": ["api", "users", "profile", "image"] },
+        "body": {
+          "mode": "formdata",
+          "formdata": [{ "key": "image", "type": "file", "src": "postman-assets/not-an-image.jpg" }]
+        }
+      }
+    },
+    {
+      "name": "7. A real image is accepted",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"the message confirms it\", () => pm.expect(body.message).to.equal(\"profile image updated\"));",
+              "pm.test(\"the row now carries a public path\", () => pm.expect(body.data.image).to.match(/^\\/uploads\\/user-\\d+-\\d+\\.png$/));",
+              "pm.test(\"the password hash is never returned\", () => pm.expect(body.data).to.not.have.property(\"password\"));",
+              "pm.collectionVariables.set(\"imagePath\", body.data.image);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/api/users/profile/image", "host": ["{{baseUrl}}"], "path": ["api", "users", "profile", "image"] },
+        "body": {
+          "mode": "formdata",
+          "formdata": [{ "key": "image", "type": "file", "src": "postman-assets/avatar.png" }]
+        }
+      }
+    },
+    {
+      "name": "8. The uploaded file is served",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"it is served as an image\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.match(/^image\\//));",
+              "pm.test(\"and it has content\", () => pm.expect(pm.response.responseSize).to.be.above(0));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}{{imagePath}}", "host": ["{{baseUrl}}{{imagePath}}"] }
+      }
+    },
+    {
+      "name": "9. The profile reports the image",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"the stored path is the one just uploaded\", () => pm.expect(body.data.image).to.equal(pm.collectionVariables.get(\"imagePath\")));",
+              "pm.test(\"no password in the profile either\", () => pm.expect(body.data).to.not.have.property(\"password\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/api/users/profile", "host": ["{{baseUrl}}"], "path": ["api", "users", "profile"] }
+      }
+    },
+    {
+      "name": "10. Uploading again replaces the old file",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"the path changed\", () => pm.expect(body.data.image).to.not.equal(pm.collectionVariables.get(\"imagePath\")));",
+              "pm.collectionVariables.set(\"oldImagePath\", pm.collectionVariables.get(\"imagePath\"));",
+              "pm.collectionVariables.set(\"imagePath\", body.data.image);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/api/users/profile/image", "host": ["{{baseUrl}}"], "path": ["api", "users", "profile", "image"] },
+        "body": {
+          "mode": "formdata",
+          "formdata": [{ "key": "image", "type": "file", "src": "postman-assets/avatar.png" }]
+        }
+      }
+    },
+    {
+      "name": "11. The replaced file is gone",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// nothing points at the previous file any more, so it is deleted from",
+              "// disk rather than left to accumulate",
+              "pm.test(\"the old path is a 404\", () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}{{oldImagePath}}", "host": ["{{baseUrl}}{{oldImagePath}}"] }
+      }
+    }
+  ]
+}

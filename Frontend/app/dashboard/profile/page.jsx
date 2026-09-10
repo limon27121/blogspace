@@ -3,6 +3,7 @@
 import { useState } from "react"
 
 import Avatar from "@/components/Avatar"
+import ProfileImageUpload from "@/components/ProfileImageUpload"
 import { updateProfile } from "@/services/user.service"
 import { useAuth } from "@/contexts/AuthContext"
 import { getDisplayName } from "@/utils/auth"
@@ -104,6 +105,10 @@ export default function ProfilePage() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div className="mt-6">
+                <ProfileImageUpload />
             </div>
 
             <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6">

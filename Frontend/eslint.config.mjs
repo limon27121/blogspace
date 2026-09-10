@@ -11,6 +11,13 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    // Avatars are 32-80px files served from the API host. next/image would need
+    // that host declared in next.config and routes every avatar through the
+    // optimiser for no gain, so this one file uses a plain <img>.
+    files: ["components/Avatar.jsx"],
+    rules: { "@next/next/no-img-element": "off" },
+  },
 ]);
 
 export default eslintConfig;

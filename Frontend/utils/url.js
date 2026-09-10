@@ -23,3 +23,23 @@ export function buildQuery(current, changes) {
     const query = next.toString()
     return query ? `?${query}` : ""
 }
+
+/**
+ * Turn a stored image path into something an `<img src>` can load.
+ *
+ * The backend stores `/uploads/user-3-17.png`, which is relative to **its own**
+ * host, not to Next. `NEXT_PUBLIC_API_URL` points at `.../api`, so the origin
+ * is that minus the trailing `/api`.
+ *
+ * @param {string|null|undefined} storedPath
+ * @returns {string} an absolute url, or "" when there is no image
+ */
+export function imageUrl(storedPath) {
+    if (!storedPath) return ""
+
+    // already absolute (a seeded row, or a CDN one day): leave it alone
+    if (/^https?:\/\//i.test(storedPath)) return storedPath
+
+    const base = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/api\/?$/, "")
+    return `${base}${storedPath.startsWith("/") ? "" : "/"}${storedPath}`
+}

@@ -146,6 +146,25 @@ export const update_password = async ({ requester, password }) => {
     return { id: user.id }
 }
 
+// the file itself is already on disk by the time this runs: multer writes it
+// before the handler is reached. this only records where it went, and reports
+// the previous path so the caller can delete a picture nothing points at any
+// more
+export const update_profile_image = async ({ requester, image }) => {
+    if (!image) {
+        throw new ServiceError(400, "an image file is required")
+    }
+
+    const user = await load_own_row(requester)
+
+    const previous_image = user.image
+
+    user.image = image
+    await user.save()
+
+    return { user, previous_image }
+}
+
 // admin only, gated by is_admin on the route. this is the one place isActive
 // changes, which is why update_profile refuses to read it from a body
 export const set_user_status = async ({ id, requester, isActive }) => {

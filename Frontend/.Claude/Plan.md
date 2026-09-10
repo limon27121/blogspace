@@ -1105,7 +1105,7 @@ refused at the login endpoint **and** on the login page.
 
 ---
 
-## Phase 17 — Backend-dependent features `[!]`
+## Phase 17 — Backend-dependent features `[~]` (image done, reset still blocked)
 
 **Goal:** §22, §25, §26 — blocked until the backend gains three endpoints.
 
@@ -1113,17 +1113,17 @@ refused at the login endpoint **and** on the login page.
 
 | Endpoint | Needs |
 |---|---|
-| `PATCH /api/users/profile/image` | multer upload, field `image`, an image column on `users`, static serving of `uploads/` |
+| `PATCH /api/users/profile/image` | **done** — multer upload, field `image`, an `image` column on `users`, static serving of `uploads/` |
 | `POST /api/auth/forgot-password` | a reset token column, an email sender (nodemailer) |
 | `PATCH /api/auth/reset-password/:token` | token lookup, expiry check, rehash |
 
 ### Frontend, once they exist
 
-- [ ] Profile image upload — `FormData` with field `image`, sent as
-      `multipart/form-data`. **Do not set `Content-Type` by hand**; the browser
-      must add the multipart boundary itself. Validate type and size in the
-      browser first (§39). On success call `refreshUser()` so the profile
-      avatar and the fixed navbar avatar both update with no re-login (§22).
+- [x] Profile image upload — `FormData` with field `image`, sent as
+      `multipart/form-data`. `Content-Type` is never set by hand; the browser
+      adds the multipart boundary itself. Type and size are validated in the
+      browser first (§39). On success `refreshUser()` updates the profile
+      avatar and the fixed navbar avatar with no re-login (§22).
 - [ ] `app/forgot-password/page.jsx` — email, `POST /api/auth/forgot-password`,
       success message
 - [ ] `app/reset-password/[token]/page.jsx` — new password + confirm,
@@ -1137,9 +1137,69 @@ yet — do not fake a success message.
 a 5 MB file is rejected in the browser; a `.txt` renamed to `.jpg` is rejected
 by the backend and the message is shown.
 
+### Backend: `PATCH /api/users/profile/image` — built and tested
+
+```
+Backend/middlewares/upload.middleware.js   multer, 2 MB limit, magic-byte check, cleanup
+Backend/models/user.model.js               nullable image column
+Backend/controller/user.controller.js      update_own_image
+Backend/routes/user.route.js               the route, with multer errors mapped to 400
+Backend/app.js                             /uploads served statically
+```
+
+Decisions worth keeping:
+
+- **The stored filename is `user-<id>-<timestamp><ext>`, never the uploaded
+  name.** An uploaded name can carry `../` or a shell character, and two people
+  uploading `photo.png` would overwrite each other.
+- **The mimetype is not trusted.** The first version filtered on it and
+  **accepted a text file renamed `.jpg`** — curl derives that header from the
+  extension, and so does Chrome. The first 12 bytes on disk are now checked
+  against the JPEG, PNG, GIF and WebP signatures.
+- **Replacing a picture deletes the old file**, so `uploads/` does not fill with
+  images nothing points at. Deletion is confined to `uploads/` and uses only the
+  basename.
+- **`/uploads` is served outside `/api`**: an `<img src>` carries no token.
+- If the row update fails, the file just written is deleted rather than left
+  orphaned.
+
+**Postman:** `Backend/ProfileImage.postman_collection.json` with fixtures in
+`Backend/postman-assets/`. `newman run ProfileImage.postman_collection.json`
+from `Backend/` — **11 requests, 25 assertions, 0 failures**: no token 401, no
+file 400, wrong field name 400, disguised text file 400, real image 200, the
+file is served, the profile reports it, re-upload, old path 404. The 2 MB limit
+is checked by curl instead: a 2 MB fixture is not worth committing.
+
+### Frontend
+
+`components/ProfileImageUpload.jsx` (Choose Image / Upload / Cancel with a live
+preview), `components/Avatar.jsx` (renders the picture, falls back to initials
+if the file 404s), `utils/url.js` `imageUrl()` (stored paths are relative to the
+API host, not to Next), and `updateProfileImage` in the user service.
+
+**Result: 32 checks passed** in real Chrome against the real API, with real
+files on disk.
+
+- **§39 in the browser:** a `text/plain` file and a 2 MB+ image are both refused
+  with no request sent, and Upload stays disabled.
+- **§22:** after one upload the profile avatar *and* the fixed navbar avatar
+  both point at the new file, with no re-login — one `refreshUser()` feeds both.
+- The request went out as `multipart/form-data; boundary=...`, exactly once.
+- The file landed on disk, the row carries the path, the rendered `src` is that
+  path on the API host, and the browser really loads it (200, `image/*`).
+- Re-uploading changed the path and left the previous URL as a **404**.
+- **The disguised file, end to end:** Chrome reports `fake.jpg` as
+  `image/jpeg`, so the browser check passes it — and the backend refuses it with
+  "the uploaded file is not a valid image", which the page renders, leaving the
+  stored image unchanged. This is exactly why both layers exist.
+
+Two harness lessons: CDP's `setFileInputFiles` silently drops a 2 MB file, and
+it cannot produce a file whose reported type differs from its extension. Both
+validation cases build a `File` in the page instead.
+
 ---
 
-## Phase 18 — State and responsive sweep `[ ]`
+## Phase 18 — State and responsive sweep `[x]`
 
 **Goal:** walk every page once, checking only the states.
 
@@ -1160,6 +1220,40 @@ Also confirm across every form:
 Responsive pass at 375px, 768px and 1280px (§34): the sidebar becomes a drawer,
 cards stack, tables scroll inside their own container rather than pushing the
 page sideways, and every form fits the viewport.
+
+**Result:** 65 checks passed in one sweep, in real Chrome against the real API.
+The loading state was caught by **holding the API request open** over CDP and
+looking at the page mid-flight; the error state by answering the same request
+with a 500. The page code under test is the real one in both cases.
+
+| Page | Loading | Empty | Error |
+|---|---|---|---|
+| `/` | skeleton cards, no error banner | `No blogs found.` | `something went wrong`, no leftover skeleton |
+| `/blogs/[id]` | skeleton | `Blog Not Found` for a missing id | backend message |
+| `/dashboard` | skeleton | "You have not created any blogs yet." beside a real `0` | backend message, and the count reads **Unavailable** rather than a made-up `0` |
+| `/dashboard/blogs` | skeleton rows | `You haven't created any blogs yet.` | backend message |
+| `/admin/users` | skeleton rows | `No users found.` | backend message |
+
+Across the sweep:
+
+- **No raw JavaScript ever reaches the screen** (§31) — every error page was
+  matched against `TypeError`, `ReferenceError`, `Failed to fetch`,
+  `[object Object]` and `NetworkError`, and none appeared.
+- **The submit button disables and says what it is doing** — checked live with
+  the create request held open: `Publishing...`, `disabled === true`.
+- **Nothing logs the token.** The source contains no `console.` call at all,
+  and every console message during the sweep was searched for the live token's
+  tail. Nothing matched.
+- **No page threw an uncaught exception** for the whole run.
+- **§34:** ten routes at 375px, 768px and 1280px — 30 checks, no horizontal
+  overflow anywhere.
+
+One test bug worth recording: the first run failed the admin empty state
+because the interception was also answering the **CORS preflight**. A
+fabricated `OPTIONS` response with no `access-control-allow-headers` makes the
+browser block the real request, so the page correctly showed the
+unreachable-server state instead of the one under test. Preflights are now
+passed through to the backend, which answers them properly.
 
 ---
 

@@ -625,13 +625,20 @@ afterwards — all 18 still pass.
 
 ---
 
-## Phase 8 — Login `[ ]`
+## Phase 8 — Login `[x]`
 
 **Goal:** `/login` (§11), wired to the context from Phase 2.
 
-- [ ] `app/login/page.jsx` — email, password, Forgot Password? link
-- [ ] On success: store the token, load the profile, redirect to `/dashboard`
-- [ ] Submit button disabled while pending, label `Logging in...` (§32)
+- [x] `app/login/page.jsx` — email, password (with the Phase 7 eye toggle),
+      Forgot Password? link
+- [x] On success: store the token, load the profile, redirect to `/dashboard`.
+      All three happen inside `AuthContext.login`, so the navbar and every
+      later guard read the same state
+- [x] Submit button disabled while pending, label `Logging in...` (§32)
+- [x] `app/forgot-password/page.jsx` — an honest placeholder, so the link is
+      not a 404. It says the API has no reset endpoint rather than showing a
+      "check your inbox" message for an email nobody sent (§1). Phase 17
+      replaces it
 
 **Check:**
 
@@ -641,6 +648,34 @@ afterwards — all 18 still pass.
    one through Postman to test it
 4. Double-clicking Submit fires one request, not two
 5. Refresh after login — still logged in
+
+**Result:** 23 checks passed in real Chrome against the real API and database.
+The account was created through the real register endpoint and deactivated with
+a direct `UPDATE` (the admin password is not known here), then reactivated in a
+`finally` block so a failed run cannot leave a disabled row behind.
+
+- **Validation:** an empty form calls out both fields and sends nothing;
+  `not-an-email` never reaches the network.
+- **Wrong password:** renders `invalid email or password`, stores **no** token,
+  stays on `/login`, and re-enables the button.
+- **While pending** (the request held open over CDP): the button reads
+  `Logging in...` and is disabled, and two further clicks produced **no**
+  second request. The payload is `email` and `password` — nothing else.
+- **On success:** lands on `/dashboard`, a three-part JWT is in
+  `localStorage`, and the navbar switches from Login/Register to the name.
+- **After a reload:** still signed in — the token survives and the provider
+  re-fetches the profile.
+- **Deactivated:** `this account has been deactivated`, and no token is stored.
+  Reactivating lets the same credentials straight back in.
+- **Forgot Password:** reaches a page that says the feature is not available
+  yet, and says nothing about a link having been sent.
+
+`router.replace` rather than `push`: Back from the dashboard should not return
+to a login form the user has already passed.
+
+`/dashboard` does not exist until Phase 9, so a successful login currently
+lands on a 404 with the navbar showing the signed-in name. The redirect is
+right; the page arrives next.
 
 ---
 

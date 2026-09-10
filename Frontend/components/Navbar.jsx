@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
 import ProfileMenu from "@/components/ProfileMenu"
+import SearchBar from "@/components/SearchBar"
 import { useAuth } from "@/contexts/AuthContext"
 
 /**
@@ -13,17 +13,6 @@ import { useAuth } from "@/contexts/AuthContext"
  */
 export default function Navbar() {
     const { user, loading } = useAuth()
-    const router = useRouter()
-    const [term, setTerm] = useState("")
-
-    // Phase 5 replaces this with the debounced SearchBar that keeps the term in
-    // the URL; submitting to the same query key means nothing has to change
-    // here when it does
-    function handleSearch(event) {
-        event.preventDefault()
-        const query = term.trim()
-        router.push(query ? `/?title=${encodeURIComponent(query)}` : "/")
-    }
 
     return (
         <header className="fixed inset-x-0 top-0 z-40 h-16 border-b border-gray-200 bg-white">
@@ -32,16 +21,13 @@ export default function Navbar() {
                     Blog<span className="text-gray-900">Hub</span>
                 </Link>
 
-                <form onSubmit={handleSearch} className="min-w-0 flex-1" role="search">
-                    <input
-                        type="search"
-                        value={term}
-                        onChange={(event) => setTerm(event.target.value)}
-                        placeholder="Search blogs..."
-                        aria-label="Search blogs"
-                        className="w-full rounded-full border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:bg-white focus:outline-none"
-                    />
-                </form>
+                {/* Suspense because SearchBar reads the URL with
+                    useSearchParams, and the navbar renders on every route */}
+                <Suspense
+                    fallback={<div className="h-9 min-w-0 flex-1 rounded-full bg-gray-100" />}
+                >
+                    <SearchBar />
+                </Suspense>
 
                 {/* three states, not two: while the profile request is in
                     flight the visitor is neither known nor known-to-be-a-guest,

@@ -419,14 +419,20 @@ emulated as dark — body renders `rgb(249, 250, 251)` and the heading is legibl
 
 ---
 
-## Phase 5 — Search and category filter `[ ]`
+## Phase 5 — Search and category filter `[x]`
 
 **Goal:** §6, §7, §8 — either filter alone, and both together.
 
-- [ ] `components/SearchBar.jsx`
-- [ ] `components/CategoryFilter.jsx` — All, Testing, Automation, Programming,
-      DevOps, AI
-- [ ] Homepage reads both from the URL and passes them to `getBlogs`
+- [x] `components/SearchBar.jsx` — debounced, and it lives in the navbar so
+      there is one search box in the app rather than a second one on the
+      homepage. The inline form Phase 3 put there is gone
+- [x] `components/CategoryFilter.jsx` — the pills are **derived from the
+      blogs the API returns**, not the fixed list this plan first named. Every
+      real category is reachable and no empty one is offered
+- [x] Homepage reads both from the URL and passes them to `getBlogs`
+- [x] `utils/url.js` — `buildQuery` merges one filter change into whatever is
+      already in the URL, and drops a key whose value is empty. Both components
+      write the URL, and two copies of that logic would drift apart
 
 ### Keep the filters in the URL, not in component state
 
@@ -450,6 +456,69 @@ Two details that decide whether this feels finished:
 3. Both together — `/api/blogs?title=play&category=Testing`
 4. A search with no matches shows `No blogs found.`, not an error
 5. Copy the URL into a new tab — the same filtered list loads
+
+**Result:** 22 checks passed in real Chrome against the real backend and the
+real database — nothing stubbed, so every count below is what MySQL holds.
+
+| Check | Evidence |
+|---|---|
+| §6 search | typing "Debugging" one character at a time pushed `/?title=Debugging`, the list went 12 → 3, and all three titles contain the term |
+| Debounce | those 9 keystrokes produced **1** request, not 9 |
+| §7 category | clicking Testing wrote `/?category=Testing`, sent `category=Testing` to the backend, and left the one Testing blog on screen with the pill marked active |
+| §8 both | typing "API" on top of that filter produced one request carrying both parameters, and one matching blog |
+| Shareable | opening `/?title=Debugging&category=Testing-13` cold loaded the same 2 rows, with the term already in the input |
+| Empty | `/?title=zzzznothing` reads `No blogs found.`, not an error |
+| Back button | after Testing → Security, Back returned to `/?category=Testing` |
+| "All" | clears the parameter (`/`), never sends `category=All`, and the full list comes back |
+
+Two implementation notes worth keeping:
+
+- **The input follows the URL, not the other way round.** The URL changes on
+  its own — the back button, the logo link, a pasted link — so `SearchBar`
+  adjusts its value during render when the `title` parameter no longer matches
+  what it last saw. An effect would render the stale term first.
+- **Loading is derived, not stored.** The page keeps the filter combination
+  each answer belongs to and treats "the answer on screen is for a different
+  combination" as loading. That removes the `setLoading(true)` that would run
+  in the effect body, and it makes a late response for an abandoned query
+  impossible to render.
+
+Typing on a page other than `/` does not navigate on every keystroke; there
+the term only travels on submit, so a reader on a blog detail page is not
+yanked back to the list mid-word.
+
+### Why the category list is not the one written above
+
+The six names in this plan (All, Testing, Automation, Programming, DevOps, AI)
+matched nothing in the database: of 12 blogs, exactly one was in "Testing" and
+the other 11 sat in Security, Testing-13, Testing-14, Spoof and Web
+Development — most of them left behind by the backend assignment's newman runs.
+So the AI pill returned "No blogs found." correctly while 11 blogs stayed
+unreachable from any pill.
+
+`category` is a free-text column with no endpoint listing its values, so a
+hardcoded list is stale the moment anyone publishes outside it. The pills now
+come from the categories present in `GET /api/blogs` — deriving from real API
+data, the same move Phase 10 makes for the blog count.
+
+- The request is deliberately **unfiltered and made once on mount**. Asking with
+  the active filter applied would return only blogs in the selected category,
+  and the pill row would collapse to the one already selected.
+- A category that arrives in the URL but no blog carries any more (a shared
+  link, or the last blog in it was deleted) is still rendered, so the active
+  pill is visible and clickable instead of silently missing.
+- It costs one extra `GET /api/blogs` per page load, next to the filtered one
+  the list itself makes.
+
+Checked against the database: 11 more checks passed — the pills equal
+`All` plus exactly the categories MySQL holds, "AI" and "Automation" are no
+longer offered, clicking Security shows all 5 Security blogs and nothing else,
+and `/?category=Retired` still renders its pill as active over an empty list.
+
+**This changes Phase 11.** Its category input was to reuse "the same list as
+the filter"; there is no fixed list any more. Offer the existing categories as
+suggestions (a `datalist`) while still allowing a new one, since the backend
+accepts any non-empty string.
 
 ---
 
@@ -577,7 +646,8 @@ the number goes up.
 **Goal:** `/dashboard/blogs/create` (§16).
 
 - [ ] `components/BlogForm.jsx` — reused unchanged by Phase 13
-- [ ] Title, category (same list as the filter), content
+- [ ] Title, category (existing categories as suggestions — the filter's list
+      is derived from the data now, not fixed), content
 - [ ] `POST /api/blogs/create`, then redirect to `/dashboard/blogs`
 
 Send exactly `{ blogTitle, blog, category }`. **No `userId`** — §42 names this

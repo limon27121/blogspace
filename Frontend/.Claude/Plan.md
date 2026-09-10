@@ -1000,31 +1000,82 @@ something to let someone change by accident.
 
 ---
 
-## Phase 15 — Change password `[ ]`
+## Phase 15 — Change password `[x]`
 
 **Goal:** `/dashboard/change-password` (§24).
 
-- [ ] New password, confirm new password
-- [ ] Confirmation checked in the browser before any request
-- [ ] `PATCH /api/users/password` with `{ password }`
+- [x] New password, confirm new password — both through the Phase 7
+      `PasswordInput`, so the eye toggle behaves the same everywhere
+- [x] Confirmation checked in the browser before any request, along with the
+      six-character minimum
+- [x] `PATCH /api/users/password` with `{ password }`
+- [x] Change Password wired into the sidebar and the avatar dropdown. **Every
+      menu item in the app now points at a page that exists** — the last of the
+      deferred links is placed
 
 **Check:** mismatched fields never reach the network; a valid change succeeds,
 and after logging out the new password works and the old one returns
 `invalid email or password`.
 
+**Result:** 24 checks passed in real Chrome against the real API and database.
+The password really changed: both the new and the old one were then tried
+against the live login endpoint and through the login page itself.
+
+| Group | What was asserted |
+|---|---|
+| Form | exactly two inputs — `password` and `confirmPassword` — masked by default |
+| Caught in the browser | a mismatch, a 3-character password, and an empty form each produced **zero** requests, with the reason shown |
+| The request | one `PATCH /api/users/password`, payload `{ password }` and nothing else, success confirmed on screen, and both fields cleared afterwards |
+| Stored | the bcrypt hash in MySQL changed, still starts `$2`, and does **not** contain the new password in plain text |
+| The real proof | the new password logs in and returns a token; the old one returns `invalid email or password` with no token, both through the API and through the login page after signing out |
+| Rejection | with a rubbish token the backend's message is rendered, the button comes back, and the password is still the new one |
+
+### After a change, this device is signed out
+
+Asked for on review, and the reasoning is worth keeping. §24 does not ask for
+it, and the frontend cannot make it a security measure: `verify_token` checks
+only a token's signature and expiry, and tokens are signed with
+`expiresIn: "1d"`, so a token issued **before** the change keeps working
+elsewhere for up to a day whatever this page does. Clearing `localStorage`
+here does not touch a copy someone else already has.
+
+What signing out does buy is real, just not cryptographic: the new password is
+proved to work immediately, and no screen opened with the old one is left
+behind. So the page shows "Password updated. Signing you out", clears both
+fields, and after 1500ms calls `logout()` and replaces the route with
+`/login`. The note under the form says plainly that sessions already open
+elsewhere keep working until they expire — better than implying a reach this
+app does not have.
+
+The only real revocation would be a `passwordChangedAt` column, carried as a
+JWT claim and compared server-side in `verify_token`. That is a backend change
+and was not taken.
+
+Two checks were added and the suite re-run: **27 pass**, including "the device
+is signed out afterwards" (the URL becomes `/login`) and "the token is gone
+from localStorage". One test bug on the way: it read the page 3s after submit,
+by which time the redirect had already happened — the assertion now reads the
+notice while the page is still on screen.
+
 ---
 
-## Phase 16 — Admin user management `[ ]`
+## Phase 16 — Admin user management `[x]`
 
 **Goal:** `/admin/users` (§27, §28, §29).
 
-- [ ] Table: User, Email, Role, Status, Action
-- [ ] `GET /api/users`
-- [ ] Detail view via `GET /api/users/:id` — name, email, role, status, image,
-      created date
-- [ ] Activate / Deactivate via `PATCH /api/users/:id/status`
-- [ ] Update the row immediately on success, no full reload
-- [ ] Empty state: `No users found.`
+- [x] Table: User, Email, Role, Status, Action
+- [x] `GET /api/users`
+- [x] Detail view via `GET /api/users/:id` — name, email, role, status, image,
+      created date. It opens as a dialog rather than a route: §28 names no URL
+      for it, and the list is still behind it when it closes
+- [x] Activate / Deactivate via `PATCH /api/users/:id/status`
+- [x] Update the row immediately on success, no full reload — **from the
+      server's own response row**, so the screen cannot drift from what was
+      stored
+- [x] Empty state: `No users found.`
+- [x] The admin's own row is marked **You** and offers no status button: the
+      backend refuses `an admin cannot change their own status`, and a button
+      that can only fail should not be there
 
 **Check:**
 
@@ -1034,6 +1085,23 @@ and after logging out the new password works and the old one returns
    `this account has been deactivated`
 4. Reactivate, and they can log in again
 5. No password appears anywhere in the response (check the Network tab)
+
+**Result:** 34 checks passed in real Chrome against the real API and database.
+An admin and two normal users, created through the real endpoints and deleted
+afterwards. Nothing stubbed — the deactivated account was then genuinely
+refused at the login endpoint **and** on the login page.
+
+| Group | What was asserted |
+|---|---|
+| Access | a normal user typing `/admin/users` gets Access Denied and **zero** table rows; the same account is refused **403** by `GET /api/users` directly |
+| List | five columns exactly, one row per account in the API response, and no bcrypt hash anywhere in the rendered page |
+| Detail (§28) | View fires `GET /api/users/:id` and shows name, email, role, status and created date |
+| Profile image | there is no image column until Phase 17, so the row reads **"Not available yet"** rather than faking a photo |
+| Deactivate (§29) | `PATCH /api/users/:id/status` with `{"isActive":false}`, the row flips to Inactive **in place**, the action becomes Activate, the backend's message is shown, and the row count never changes — no reload |
+| Effect | that account then gets `this account has been deactivated` from the API and from the login page |
+| Reactivate | `{"isActive":true}`, the row flips back, and the same credentials log in again |
+| Self | the backend answers **400** `an admin cannot change their own status`; the UI does not offer the button that would trigger it |
+| Responsive | no horizontal overflow at 375px, table scrolls in its own container |
 
 ---
 

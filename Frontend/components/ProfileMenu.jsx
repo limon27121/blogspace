@@ -11,8 +11,8 @@ import { getDisplayName } from "@/utils/auth"
 /**
  * Avatar + name + dropdown for a signed-in user.
  *
- * Only items whose page exists are listed: Change Password arrives in Phase 15,
- * and a menu item pointing at a 404 is worse than no item.
+ * Every item here points at a page that exists; each was added with the page
+ * it links to.
  */
 export default function ProfileMenu() {
     const { user, logout } = useAuth()
@@ -91,6 +91,15 @@ export default function ProfileMenu() {
                         role="menuitem"
                     >
                         Profile
+                    </Link>
+
+                    <Link
+                        href="/dashboard/change-password"
+                        onClick={() => setOpen(false)}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                    >
+                        Change Password
                     </Link>
 
                     {user.role === "admin" ? (

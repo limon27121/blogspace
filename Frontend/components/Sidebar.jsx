@@ -7,9 +7,8 @@ import { usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 
 /**
- * Only routes that exist are listed. The rest of the menu arrives with the
- * page it points at, so nothing here ever leads to a 404:
- *   Change Password -> Phase 15 (/dashboard/change-password)
+ * Every route in this menu exists. Items were added phase by phase, as the page
+ * each one points at was built, so nothing here has ever led to a 404.
  */
 const USER_LINKS = [
     { href: "/dashboard", label: "Dashboard" },
@@ -18,6 +17,7 @@ const USER_LINKS = [
     { href: "/dashboard/blogs", label: "My Blogs", adminLabel: "All Blogs" },
     { href: "/dashboard/blogs/create", label: "Create Blog" },
     { href: "/dashboard/profile", label: "Profile" },
+    { href: "/dashboard/change-password", label: "Change Password" },
 ]
 
 // admin-only. Hiding this is presentation, not protection: /admin/layout.jsx

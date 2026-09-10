@@ -522,28 +522,51 @@ accepts any non-empty string.
 
 ---
 
-## Phase 6 — Blog details page `[ ]`
+## Phase 6 — Blog details page `[x]`
 
 **Goal:** `/blogs/[id]` (§9).
 
-- [ ] `app/blogs/[id]/page.jsx` — `getBlogById(id)`
-- [ ] Title, full content, category, author name, author avatar, created date
-- [ ] A `Blog Not Found` page when the service throws 404
+- [x] `app/blogs/[id]/page.jsx` — `getBlogById(id)`, with the id read from
+      `useParams()`: the route is a client component like the rest of the app
+- [x] Title, full content, category, author name, author avatar, created date
+- [x] A `Blog Not Found` page when the service throws 404, and the backend's
+      own message for any other status
 
 **Check:** a Read More button opens the right blog; `/blogs/999999` shows the
 Not Found message and no console error; `/blogs/abc` shows the backend's 400
 message rather than crashing.
 
+**Result:** 17 checks passed in real Chrome against the real API and database.
+
+- Clicking **Read More** on the filtered homepage landed on `/blogs/4` with
+  that blog's title as the `<h1>`.
+- The page shows the **full** body, not the card's truncated preview, plus
+  category, author name, avatar and `28 Aug 2026` — no raw ISO string and no
+  "undefined" anywhere.
+- `/blogs/999999` renders **Blog Not Found**, not the error banner, and keeps a
+  link back to the list.
+- `/blogs/abc` renders the backend's own wording,
+  `blog id must be a positive integer`, and is *not* mislabelled as Not Found —
+  `err.status` is what separates the two, which is why `apiFetch` keeps it.
+- Nothing threw: `Runtime.exceptionThrown` stayed empty for the whole run.
+
+The body is rendered as text with `whitespace-pre-line`, never through
+`dangerouslySetInnerHTML`. It comes from a `TEXT` column any author can write,
+so injecting it as HTML would let one author run a script in every reader's
+page.
+
 ---
 
-## Phase 7 — Registration `[ ]`
+## Phase 7 — Registration `[x]`
 
 **Goal:** `/register` (§10).
 
-- [ ] `app/register/page.jsx` — firstname, lastname, email, password, confirm
-- [ ] Validation before the request: required fields, email format, password
-      minimum 6, confirmation matches
-- [ ] `POST /api/auth/register`, then redirect to `/login`
+- [x] `app/register/page.jsx` — firstname, lastname, email, password, confirm
+- [x] Validation before the request: required fields, email format, password
+      minimum 6, confirmation matches. **lastname is not required** — the column
+      is nullable, the backend treats an empty one as `null`, and every
+      component already renders a user who has none
+- [x] `POST /api/auth/register`, then redirect to `/login`
 
 The confirm-password field is frontend-only — it is never sent. Send exactly
 `{ firstname, lastname, email, password }` and nothing else: an extra `role`
@@ -557,6 +580,48 @@ key is a §42 violation even though the backend ignores it.
 3. A 3-character password is blocked in the browser — no request is sent
 4. `not-an-email` is blocked in the browser
 5. Devtools Network confirms the payload has exactly four keys
+
+**Result:** 18 checks passed in real Chrome against the real API and database.
+
+Browser-side validation, with the network watched the whole time:
+
+- an empty form calls out all four required fields and **sends nothing**
+- `not-an-email` never reaches the network
+- a 3-character password is refused with "at least 6 characters"
+- a mismatched confirmation is refused with "Passwords do not match"
+
+The request itself, caught mid-flight (the CDP Fetch domain held it open):
+
+- while pending the button reads **"Creating account..."** and is disabled
+- two further clicks during that pause produced **no second request**
+- the payload has **exactly four keys** — `firstname`, `lastname`, `email`,
+  `password`. No `role`, no `isActive`, and no `confirmPassword`: the
+  confirmation is a browser-only check (§42)
+
+And the outcome:
+
+- a new email lands on `/login`, and the account it created really logs in —
+  `POST /api/auth/login` returned a token for it
+- the same email again renders the backend's own `email already registered`,
+  stays on `/register`, and re-enables the button
+
+Two notes for later phases:
+
+- `/login` does not exist until Phase 8, so the redirect currently lands on a
+  404. The URL is right; the page arrives next.
+- The test registers a real user each run (`phase7.<timestamp>@test.local`),
+  because §1 forbids mocking. They are harmless, but they are in the database.
+
+**Added on request: `components/PasswordInput.jsx`** — a password field with a
+show/hide eye, used for both password boxes here and reused by Phase 8 and
+Phase 15 so all four behave the same. The toggle only swaps the input's
+`type`; the value in state never changes, so nothing about the request differs.
+The button is `type="button"` (inside a form, a bare button submits it) and
+`tabIndex={-1}`, so Tab still moves to the next field. 8 checks passed: hidden
+by default, click reveals, value unchanged, label flips between "Show password"
+and "Hide password", clicking again hides, the two fields toggle independently,
+and the form still has exactly one submit button. The Phase 7 suite was re-run
+afterwards — all 18 still pass.
 
 ---
 

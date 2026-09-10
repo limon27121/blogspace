@@ -679,17 +679,23 @@ right; the page arrives next.
 
 ---
 
-## Phase 9 — Route protection and dashboard shell `[ ]`
+## Phase 9 — Route protection and dashboard shell `[x]`
 
 **Goal:** the authenticated frame, and the guards that keep guests out.
 
-- [ ] `components/Sidebar.jsx` — user menu and admin menu, active item marked,
-      drawer on mobile
-- [ ] `components/ProfileMenu.jsx` — avatar, name, dropdown with Profile,
-      Change Password, Logout
-- [ ] `app/dashboard/layout.jsx` — redirects to `/login` when not authenticated
-- [ ] `app/admin/layout.jsx` — additionally requires `role === "admin"`
-- [ ] Logout: clear the token, clear user state, redirect to `/login`
+- [x] `components/Sidebar.jsx` — user menu and admin menu, active item marked,
+      drawer on mobile. **It lists only routes that exist**; each remaining item
+      arrives with its page (My Blogs Phase 12, Create Blog Phase 11, Profile
+      Phase 14, Change Password Phase 15), so no menu item ever leads to a 404
+- [x] `components/ProfileMenu.jsx` — avatar, name, dropdown with Dashboard,
+      Users (admins only) and Logout, on the same rule
+- [x] `app/dashboard/layout.jsx` — redirects to `/login` when not authenticated
+- [x] `app/admin/layout.jsx` — additionally requires `role === "admin"`
+- [x] Logout: clear the token, clear user state, redirect to `/login`
+- [x] `app/dashboard/page.jsx` and `app/admin/users/page.jsx` — shells, filled
+      in by Phase 10 and Phase 16. A layout with no page under it is a 404, and
+      Next renders that 404 *outside* the layout, so without these the guards
+      would never run and a non-admin would meet a 404 instead of Access Denied
 
 ### The guard, and the mistake to avoid
 
@@ -720,17 +726,62 @@ Admin gets the same shape with `user.role !== "admin"` → `Access Denied`.
 5. Logout, then press Back — `/dashboard` does not come back
 6. Below 768px the sidebar is a drawer and the navbar still works
 
+**Result:** 27 checks passed in real Chrome against the real API and database.
+Two accounts were registered through the real endpoint, one promoted with a
+direct `UPDATE` (the existing admin password is not known here), and both
+deleted in a `finally` block.
+
+| Case | Outcome |
+|---|---|
+| Guest → `/dashboard` | redirected to `/login` |
+| Guest → `/admin/users` | redirected to `/login` |
+| User signs in | lands on `/dashboard`, greeted by name |
+| Refreshing `/dashboard` | the URL was polled every 120ms for three seconds: it **never** became `/login` |
+| Sidebar, normal user | Dashboard only, current item marked `aria-current="page"` |
+| Non-admin types `/admin/users` | **Access Denied**, never the page body, and *not* redirected to `/login` — logging in again would change nothing for them |
+| Logout | lands on `/login`, token gone from `localStorage`, and Back does not restore the dashboard |
+| Admin | sees Users in the sidebar, reaches the page, no Access Denied |
+| 375px | drawer sits off-screen (`right <= 0`), a Menu button appears, tapping it slides the drawer in, the navbar still works, no horizontal overflow |
+| 1280px | sidebar is a permanent column and the Menu button is not rendered |
+
+The flicker check is the one worth keeping. `!loading &&` in the guard is what
+makes it pass; without it `user` is briefly `null` while the profile request is
+in flight and every refresh throws a signed-in visitor back to `/login`.
+
+Hiding the Users link is presentation, not protection: the role is checked
+again in `app/admin/layout.jsx`, and the backend checks it a third time.
+
+**A second pass, 18 more checks**, covering what the first run had not touched:
+the dropdown itself and a token the backend refuses.
+
+- The dropdown opens on click, carries **Dashboard + Logout** for a normal user
+  and **Dashboard + Users + Logout** for an admin, shows the email and role,
+  and every link in it points at a page that exists.
+- It closes on Escape, on a click outside, and after navigating —
+  `aria-expanded` following along each time.
+- **A tampered token** (one character changed in the JWT signature, so the
+  shape is still valid and only the API can tell) does not get into
+  `/dashboard`: the provider catches the 401, clears `localStorage`, and the
+  guard lands the visitor on `/login`.
+
+Still untested, and neither is on this phase's list: token **expiry**, and a
+401 arriving mid-session on a page that is already open (nothing refetches
+until the next navigation). Both belong in the Phase 18 sweep.
+
 ---
 
-## Phase 10 — Dashboard home `[ ]`
+## Phase 10 — Dashboard home `[x]`
 
 **Goal:** `/dashboard` (§15).
 
-- [ ] Welcome line with the first name
-- [ ] Total blogs owned by this user
-- [ ] Profile summary card
-- [ ] Quick Create Blog button
-- [ ] Recent blogs list
+- [x] Welcome line with the first name
+- [x] Total blogs owned by this user
+- [x] Profile summary card — avatar, name, email, role and status as **text**,
+      joined date. No control over role or isActive anywhere (§21)
+- [ ] Quick Create Blog button — **deferred to Phase 11**, which is what
+      creates `/dashboard/blogs/create`. Same rule the sidebar and the profile
+      menu follow: a button that leads to a 404 is worse than no button
+- [x] Recent blogs list — the five newest, each linking to its public page
 
 The backend has no stats endpoint. Derive the count from `getBlogs()` filtered
 by the current user's id client-side — deriving from real API data is fine,
@@ -738,6 +789,26 @@ inventing a number is not.
 
 **Check:** the count matches what `/dashboard/blogs` lists. Create a blog and
 the number goes up.
+
+**Result:** 21 checks passed in real Chrome against the real API and database.
+Two accounts and seven blogs were created through the real endpoints and
+deleted afterwards; the only stubbing was one forced 500, to see the error
+state.
+
+| Group | What was asserted |
+|---|---|
+| Count | equals the blogs this user owns (6), **not** the site total, and rose to 7 the moment another blog was created through the API |
+| Recent | capped at five rows, newest first, only this user's titles, every row linking to `/blogs/:id` |
+| Profile card | full name, email, role and status rendered as text, and **zero** `select` or role/isActive inputs on the page (§21) |
+| Empty | a second account that owns nothing shows `0` and "You have not created any blogs yet." — an empty state, not an error |
+| Error | a 500 on `/api/blogs` renders the backend's `something went wrong`, the count reads **Unavailable** rather than a made-up `0`, and the profile card still renders |
+
+"Unavailable" is the part worth keeping: a failed request that renders `0`
+tells the user something false about their own account.
+
+The owner test is `(row.author?.id ?? row.userId) === user.id`. `author` is a
+join and can be missing; `userId` is on the row itself, so it is the reliable
+half.
 
 ---
 

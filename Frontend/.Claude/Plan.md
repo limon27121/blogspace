@@ -186,25 +186,28 @@ call a service by hand. `getBlogs()` returns `{ message, data }` with `data` an
 array. `getBlogById(999999)` throws, and the caught error's `.message` reads
 `blog not found` with `.status === 404`.
 
-**Result:** eslint clean. The live browser check is still owed — `Backend/` has
-no `.env`, so the API cannot start here. The contract was proved instead
-against a throwaway HTTP server: `getBlogs()` returned `{ message, data }`;
+**Result:** eslint clean, and the check now runs against the **real backend**
+(2026-09-10, `Backend/` on `http://localhost:5000/api`): `getBlogs()` returned
+`{ message: "blogs found", data: Array(12) }`;
 `getBlogs({ title: "play", category: "" })` requested `/api/blogs?title=play`
-with the empty filter dropped and **no** `Authorization` header; a 404 body
-`{ message: "blog not found" }` arrived as a thrown `Error` carrying that
-`.message` and `.status === 404`; `createBlog` sent `POST /api/blogs/create`
-with `Bearer <token>` and `Content-Type: application/json`. Repeat the console
-check against the real backend before starting Phase 2.
+with the empty filter dropped and **no** `Authorization` header;
+`getBlogById(999999)` threw an `Error` with `.message === "blog not found"` and
+`.status === 404`. Phase 1 is closed — Phase 2 can start.
 
 ---
 
-## Phase 2 — Auth context and session persistence `[ ]`
+## Phase 2 — Auth context and session persistence `[x]`
 
 **Goal:** the app knows who is logged in, and still knows after a refresh.
 
-- [ ] `contexts/AuthContext.jsx` — provider exposing
-      `{ user, loading, login, logout, refreshUser }`
-- [ ] Wrap `app/layout.jsx` in the provider
+- [x] `contexts/AuthContext.jsx` — provider exposing
+      `{ user, loading, login, logout, refreshUser }`, plus a `useAuth()` hook
+      that throws when it is read outside the provider
+- [x] Wrap `app/layout.jsx` in the provider
+      (`app/layout.js` renamed to `.jsx` to match the tree at the bottom)
+- [x] `utils/auth.js` — `getToken`/`setToken`/`clearToken`, so the
+      `"token"` key is written in exactly one place; `utils/api.js` now reads
+      the token through it instead of touching `localStorage` itself
 
 ### The refresh problem
 
@@ -237,6 +240,24 @@ new avatar appears in the navbar immediately (§22).
 2. Refresh the page — `user` comes back on its own, no second login
 3. Corrupt the token in devtools (change one character) and refresh — the app
    lands logged out, and the bad token is gone from `localStorage`
+
+**Result:** `next build` compiles and prerenders `/` with the provider in the
+tree, which is the real check that nothing reads `localStorage` during a
+server render — every accessor in `utils/auth.js` guards on `window`.
+`next dev` serves `/` with a 200 and no hydration warning. eslint clean, after
+one rewrite: the mount effect originally called `setLoading(false)` straight
+from the effect body on the no-token path, which
+`react-hooks/set-state-in-effect` rejects as a cascading render. Both paths now
+resolve through one promise, so state is set from a callback either way.
+
+The three console checks above still need a running backend (`Backend/` has no
+`.env`) — `login`, refresh persistence and the corrupt-token path are written
+but unproven at runtime. Run them before Phase 8 relies on them.
+
+`login()` stores the token and then calls `getProfile()` rather than trusting
+the login response body, so `user` has one shape everywhere. If that profile
+call fails the token is cleared again — a half-logged-in session, with a token
+but no user, would send every later guard the wrong answer.
 
 ---
 

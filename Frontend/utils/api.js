@@ -1,6 +1,8 @@
 // The only place in the app that talks HTTP. Pages and components never call
 // fetch directly: page -> component -> service -> apiFetch.
 
+import { getToken } from "@/utils/auth"
+
 const BASE = process.env.NEXT_PUBLIC_API_URL
 
 /**
@@ -15,12 +17,8 @@ const BASE = process.env.NEXT_PUBLIC_API_URL
 export async function apiFetch(path, { method = "GET", body, auth = true } = {}) {
     const headers = {}
 
-    // localStorage only exists in the browser; a component rendered on the
-    // server would otherwise throw before the request is even sent
-    const token =
-        auth && typeof window !== "undefined"
-            ? window.localStorage.getItem("token")
-            : null
+    // getToken returns null on the server, where localStorage does not exist
+    const token = auth ? getToken() : null
 
     if (token) headers.Authorization = `Bearer ${token}`
 

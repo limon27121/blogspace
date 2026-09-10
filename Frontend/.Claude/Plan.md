@@ -261,21 +261,52 @@ but no user, would send every later guard the wrong answer.
 
 ---
 
-## Phase 3 — Public shell `[ ]`
+## Phase 3 — Public shell `[x]`
 
 **Goal:** the frame every guest page sits inside.
 
-- [ ] `components/Navbar.jsx` — logo, search box, Login/Register for guests,
-      `ProfileMenu` for authenticated users
-- [ ] `components/Footer.jsx`
-- [ ] `app/layout.jsx` — provider, Navbar, `{children}`, Footer
-- [ ] `components/Loader.jsx` and a card skeleton, used from Phase 4 onward
+- [x] `components/Navbar.jsx` — logo, search box, Login/Register for guests,
+      `ProfileMenu` for authenticated users. The search form pushes
+      `/?title=...`, the same query key Phase 5 debounces, so nothing here has
+      to change when `SearchBar` takes the input over
+- [x] `components/Footer.jsx`
+- [x] `app/layout.jsx` — provider, Navbar, `{children}`, Footer
+- [x] `components/Loader.jsx` — spinner plus `BlogCardSkeleton` and
+      `BlogCardSkeletonGrid`, used from Phase 4 onward
+- [x] `components/ProfileMenu.jsx` — avatar, name, dropdown. Built early
+      because the navbar needs it; it carries Logout only, since Profile and
+      Change Password have no pages before Phase 14 and 15, and a menu item
+      pointing at a 404 is worse than no item. Phase 9 adds them
+- [x] `components/Avatar.jsx` — initials on a colour picked by a hash of the
+      name, so one person keeps one colour everywhere. Not in the file tree
+      below: Navbar, BlogCard and the profile page all need the same circle,
+      and three copies of it would drift
+- [x] `utils/auth.js` — `getDisplayName`, `getInitials`, `getAvatarColor`,
+      each surviving a null `lastname`
 
 The navbar is fixed (§3), so the page body needs top padding equal to the navbar
 height or the first row of content hides underneath it.
 
 **Check:** the navbar stays put while the page scrolls, shows Login/Register in
 a private window, and no content is trapped behind it at the top of the page.
+
+**Result:** checked in real Chrome over the devtools protocol against
+`next start`, after hydration — computed styles and rectangles, not a reading
+of the source. All twelve passed: `position: fixed`; navbar 64px tall;
+`main` padding-top 64px, so the first content row starts at y=64 instead of
+behind the bar; the navbar top stays at 0 after scrolling; footer present; two
+`/login` and two `/register` links (navbar and footer) once the session
+resolves to guest; one search input; the auth-slot placeholder gone after
+hydration; the word "undefined" nowhere in the rendered text; and no horizontal
+overflow at 375px. A second run typed into the search box and submitted it —
+the URL became `/?title=playwright`.
+
+The auth slot has three states, not two. While the profile request is in flight
+it renders a placeholder: showing Login for that moment flashes the wrong thing
+at someone who is already signed in.
+
+Still unproven: the signed-in navbar and the ProfileMenu dropdown. Both need a
+session, so both wait on the backend that has no `.env` yet.
 
 ---
 

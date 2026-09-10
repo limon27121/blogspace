@@ -178,8 +178,14 @@ export default function ManageBlogsPage() {
                                         {formatDate(blog.createAt)}
                                     </td>
                                     <td className="px-5 py-3 text-right">
-                                        {/* Edit arrives with Phase 13, which creates
-                                            /dashboard/blogs/[id]/edit */}
+                                        <div className="flex justify-end gap-2">
+                                        <Link
+                                            href={`/dashboard/blogs/${blog.id}/edit`}
+                                            aria-label={`Edit ${blog.blogTitle}`}
+                                            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                        >
+                                            Edit
+                                        </Link>
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -192,6 +198,7 @@ export default function ManageBlogsPage() {
                                         >
                                             Delete
                                         </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

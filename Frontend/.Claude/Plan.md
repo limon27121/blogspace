@@ -918,13 +918,15 @@ One test bug worth noting: the first run failed the header check because
 
 ---
 
-## Phase 13 — Edit blog `[ ]`
+## Phase 13 — Edit blog `[x]`
 
 **Goal:** `/dashboard/blogs/[id]/edit` (§18).
 
-- [ ] Load with `getBlogById(id)` and prefill `BlogForm`
-- [ ] Submit calls `PUT /api/blogs/update/:id`
-- [ ] Render the backend's 403 message when it is not yours
+- [x] Load with `getBlogById(id)` and prefill `BlogForm` — reused from
+      Phase 11 unchanged, with different labels
+- [x] Submit calls `PUT /api/blogs/update/:id`
+- [x] Render the backend's 403 message when it is not yours
+- [x] The **Edit action** in the Phase 12 table, now that the route exists
 
 **Check:**
 
@@ -934,6 +936,24 @@ One test bug worth noting: the first run failed the header check because
    `You are not authorized to update this blog.`
 4. As admin, the same edit succeeds
 5. `/dashboard/blogs/999999/edit` shows Not Found
+
+**Result:** 31 checks passed in real Chrome against the real API and database.
+Two authors and an admin, real blogs, deleted afterwards; the only stubbing was
+a pause on the PUT to watch the button.
+
+| Group | What was asserted |
+|---|---|
+| Opening | the table's Edit link points at `/dashboard/blogs/:id/edit`, and the form opens with title, content **and** category already filled from the API |
+| Validation | clearing the title is refused in the browser — no request goes out |
+| Saving | the button reads `Saving...` and is disabled, two further clicks send **no** second request, the payload is exactly `blogTitle`, `blog`, `category` with **no `userId`**, and the page returns to the list |
+| Persisted | `GET /api/blogs/:id` shows the new title and body, the owner is unchanged, and the public page shows the edit |
+| Someone else's | the page warns first, still prefills (the read is public), and saving renders the backend's own **"You are not authorized to update this blog."** — the page stays put, the button comes back, and the blog is unchanged in the database |
+| Admin | no warning banner, the edit succeeds, and **the blog still belongs to its original author** |
+| Missing | `/dashboard/blogs/999999/edit` shows Blog Not Found; `/abc/edit` shows the backend's `blog id must be a positive integer` |
+
+`GET /api/blogs/:id` is public, so the edit page loads for anyone — the *write*
+is what is protected. The banner is a courtesy; the refusal still comes from
+the backend, in its own words.
 
 ---
 

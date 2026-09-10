@@ -9,7 +9,6 @@ import { useAuth } from "@/contexts/AuthContext"
 /**
  * Only routes that exist are listed. The rest of the menu arrives with the
  * page it points at, so nothing here ever leads to a 404:
- *   Profile       -> Phase 14  (/dashboard/profile)
  *   Change Password -> Phase 15 (/dashboard/change-password)
  */
 const USER_LINKS = [
@@ -18,6 +17,7 @@ const USER_LINKS = [
     // every blog to an admin (§4), and the menu should not claim otherwise
     { href: "/dashboard/blogs", label: "My Blogs", adminLabel: "All Blogs" },
     { href: "/dashboard/blogs/create", label: "Create Blog" },
+    { href: "/dashboard/profile", label: "Profile" },
 ]
 
 // admin-only. Hiding this is presentation, not protection: /admin/layout.jsx

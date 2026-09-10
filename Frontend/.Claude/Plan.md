@@ -957,15 +957,18 @@ the backend, in its own words.
 
 ---
 
-## Phase 14 — Profile and edit profile `[ ]`
+## Phase 14 — Profile and edit profile `[x]`
 
 **Goal:** `/dashboard/profile` (§20, §21).
 
-- [ ] `GET /api/users/profile` — avatar, firstname, lastname, email, role
-- [ ] Edit form for firstname and lastname
-- [ ] `PUT /api/users/profile/update`
-- [ ] Call `refreshUser()` after a successful save so the navbar name updates
-- [ ] Email read-only; **no control anywhere for `role` or `isActive`** (§21)
+- [x] `GET /api/users/profile` — avatar, firstname, lastname, email, role.
+      The layout guard has already loaded that row into the context, so the
+      page edits what is there instead of fetching it a second time
+- [x] Edit form for firstname and lastname
+- [x] `PUT /api/users/profile/update`
+- [x] Call `refreshUser()` after a successful save so the navbar name updates
+- [x] Email read-only; **no control anywhere for `role` or `isActive`** (§21)
+- [x] Profile wired into the sidebar and the avatar dropdown
 
 Role is displayed as text. The moment it becomes a `<select>`, §42 is violated
 even if the backend rejects the change.
@@ -976,6 +979,24 @@ even if the backend rejects the change.
 2. A name change persists after a refresh
 3. The navbar name updates without a re-login
 4. Search the rendered page for a role or status input — there is none
+
+**Result:** 26 checks passed in real Chrome against the real API and database.
+One account, created and deleted through the real endpoints, nothing stubbed.
+
+| Group | What was asserted |
+|---|---|
+| Reading | the page shows this user's own record — name, email, role and status as text, prefilled form fields |
+| §21 | the email input is `readOnly` **and** disabled, and a query for `select`, `input[name=role]`, `input[name=isActive]`, checkboxes and radios found **zero** controls on the page |
+| Validation | an empty first name is refused in the browser; no request goes out |
+| Saving | one request, payload is `firstname` and `lastname` **only** — no `role`, no `isActive`, no `email` |
+| §20 | after `refreshUser()` the navbar shows the new name with no re-login, and the profile card updates with it |
+| Persisted | `GET /api/users/profile` returns the new name, the role is untouched, and the change survives a reload |
+| Nullable | clearing the optional last name stores **`null`**, not `""`, and both the page and the navbar then render the first name alone — the word "undefined" appears nowhere |
+| Rejection | with a rubbish token the backend's message is rendered, the button comes back, and the stored profile is unchanged |
+
+The backend *would* accept an email change through this endpoint. The field is
+still read-only: the assignment does not ask for it, and a login address is not
+something to let someone change by accident.
 
 ---
 

@@ -76,17 +76,23 @@ leave the page unbuilt rather than ship a lie.
 
 ---
 
-## Phase 0 — Project skeleton `[ ]`
+## Phase 0 — Project skeleton `[x]`
 
 **Goal:** an empty Next.js app that boots, with Tailwind working. Nothing else.
 
-- [ ] `npx create-next-app@latest .` — App Router yes, Tailwind yes,
+- [x] `npx create-next-app@latest .` — App Router yes, Tailwind yes,
       TypeScript no, `src/` no, import alias `@/*` yes
-- [ ] Folders: `components/ services/ contexts/ utils/`
-- [ ] `.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:5000/api`
-- [ ] `.env.example` with the same key and an empty value
-- [ ] `.gitignore` already covers `node_modules/`, `.next/` and `.env*.local` —
+      (npm rejects the capital in `Frontend/` as a package name, so the app was
+      generated in a temp `frontend-init/` and moved in; `package.json` name is
+      `blog-frontend`. Next 16.3.4, React 19, Tailwind v4)
+- [x] Folders: `components/ services/ contexts/ utils/` (each holds a
+      `.gitkeep` so git tracks the empty folder)
+- [x] `.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:5000/api`
+- [x] `.env.example` with the same key and an empty value
+- [x] `.gitignore` already covers `node_modules/`, `.next/` and `.env*.local` —
       confirm rather than assume
+      (it ignores `.env*`, which swallowed `.env.example` too — added a
+      `!.env.example` negation so the template stays committed)
 
 **What you are learning:** only variables prefixed `NEXT_PUBLIC_` reach the
 browser. The API URL must be public because the fetch happens client-side. A
@@ -97,18 +103,27 @@ class actually applies — put `className="text-3xl text-blue-600"` on something
 and see it render blue and large. If it renders plain, Tailwind is not wired and
 every later phase will look broken.
 
+**Result:** `next dev` ready in 465ms, `/` returns 200, and the emitted
+stylesheet contains `.text-blue-600 { color: var(--color-blue-600) }`.
+`app/page.js` is a throwaway placeholder carrying that class — Phase 3
+replaces it.
+
 ---
 
-## Phase 1 — API layer and services `[ ]`
+## Phase 1 — API layer and services `[x]`
 
 **Goal:** one place that talks HTTP, three modules that name the endpoints.
 No UI yet.
 
-- [ ] `utils/api.js` — `apiFetch(path, options)`
-- [ ] `services/auth.service.js` — `register`, `login`
-- [ ] `services/user.service.js` — `getProfile`, `updateProfile`,
+- [x] `utils/api.js` — `apiFetch(path, options)`
+      (reads `localStorage` only behind a `typeof window` check, so a service
+      imported into a server component does not throw before the fetch)
+- [x] `services/auth.service.js` — `register`, `login` (both `auth: false`)
+- [x] `services/user.service.js` — `getProfile`, `updateProfile`,
       `changePassword`, `getUsers`, `getUserById`, `setUserStatus`
-- [ ] `services/blog.service.js` — `getBlogs`, `getBlogById`, `createBlog`,
+      (`updateProfile` sends only `firstname`/`lastname`: the backend answers
+      403 if the body even mentions `role` or `isActive`)
+- [x] `services/blog.service.js` — `getBlogs`, `getBlogById`, `createBlog`,
       `updateBlog`, `deleteBlog`
 
 ### What `apiFetch` must do
@@ -170,6 +185,16 @@ export const getBlogs = (params = {}) => {
 call a service by hand. `getBlogs()` returns `{ message, data }` with `data` an
 array. `getBlogById(999999)` throws, and the caught error's `.message` reads
 `blog not found` with `.status === 404`.
+
+**Result:** eslint clean. The live browser check is still owed — `Backend/` has
+no `.env`, so the API cannot start here. The contract was proved instead
+against a throwaway HTTP server: `getBlogs()` returned `{ message, data }`;
+`getBlogs({ title: "play", category: "" })` requested `/api/blogs?title=play`
+with the empty filter dropped and **no** `Authorization` header; a 404 body
+`{ message: "blog not found" }` arrived as a thrown `Error` carrying that
+`.message` and `.status === 404`; `createBlog` sent `POST /api/blogs/create`
+with `Bearer <token>` and `Content-Type: application/json`. Repeat the console
+check against the real backend before starting Phase 2.
 
 ---
 

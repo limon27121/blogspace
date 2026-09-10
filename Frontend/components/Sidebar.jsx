@@ -10,11 +10,13 @@ import { useAuth } from "@/contexts/AuthContext"
  * Only routes that exist are listed. The rest of the menu arrives with the
  * page it points at, so nothing here ever leads to a 404:
  *   My Blogs      -> Phase 12  (/dashboard/blogs)
- *   Create Blog   -> Phase 11  (/dashboard/blogs/create)
  *   Profile       -> Phase 14  (/dashboard/profile)
  *   Change Password -> Phase 15 (/dashboard/change-password)
  */
-const USER_LINKS = [{ href: "/dashboard", label: "Dashboard" }]
+const USER_LINKS = [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard/blogs/create", label: "Create Blog" },
+]
 
 // admin-only. Hiding this is presentation, not protection: /admin/layout.jsx
 // checks the role again, and the backend checks it a third time

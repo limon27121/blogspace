@@ -812,14 +812,21 @@ half.
 
 ---
 
-## Phase 11 — Create blog `[ ]`
+## Phase 11 — Create blog `[x]`
 
 **Goal:** `/dashboard/blogs/create` (§16).
 
-- [ ] `components/BlogForm.jsx` — reused unchanged by Phase 13
-- [ ] Title, category (existing categories as suggestions — the filter's list
-      is derived from the data now, not fixed), content
-- [ ] `POST /api/blogs/create`, then redirect to `/dashboard/blogs`
+- [x] `components/BlogForm.jsx` — reused unchanged by Phase 13. It owns the
+      fields and the browser-side validation; the page owns what happens on
+      submit, so the same form can POST or PUT without knowing which
+- [x] Title, category (existing categories offered through a `datalist`, and a
+      new one can still be typed), content
+- [x] `POST /api/blogs/create`, then redirect — to `/dashboard` for now, since
+      `/dashboard/blogs` does not exist until Phase 12. The new blog is
+      visible there in the count and in Recent blogs, so the destination is
+      honest rather than a 404. Phase 12 switches it
+- [x] The **Quick Create Blog button** Phase 10 deferred, plus the sidebar
+      item and a "Write your first blog" button in the dashboard empty state
 
 Send exactly `{ blogTitle, blog, category }`. **No `userId`** — §42 names this
 explicitly, and the backend takes the owner from the token regardless.
@@ -834,6 +841,30 @@ Validate title, content and category before sending. Button reads
 3. An empty title is blocked in the browser
 4. Rapid double-click creates one blog, not two
 5. The new blog appears on the public homepage as well
+
+**Result:** 26 checks passed in real Chrome against the real API and database.
+One account and its blogs were created through the real endpoints and deleted
+afterwards; the only stubbing was a pause on the POST, to watch the button
+mid-flight.
+
+- **Validation:** an empty form calls out all three fields and sends nothing; a
+  whitespace-only title is refused in the browser, not by the backend.
+- **Category:** the existing categories are offered as suggestions and a new
+  one ("Phase11", which no blog carried) was typed and saved as typed.
+- **While pending:** the button reads `Publishing...` and is disabled, and two
+  further clicks produced **no** second request.
+- **Payload:** exactly three keys — `blogTitle`, `blog`, `category`. **No
+  `userId`** (§42), and the padded title arrived trimmed.
+- **After publishing:** the blog is in `GET /api/blogs`, owned by the
+  signed-in id, counted on the dashboard, listed in Recent blogs, and visible
+  on the public homepage.
+- **On rejection** (the token was replaced with rubbish, so the API answers
+  401): the message is rendered, the page stays on the form, the button comes
+  back, and **nothing was saved**.
+
+`BlogForm` re-enables its button in a `finally`, and the page re-throws after
+showing the error — otherwise a rejected submit would leave a dead button
+reading "Publishing..." forever.
 
 ---
 

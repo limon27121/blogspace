@@ -49,9 +49,17 @@ export default function DashboardHome() {
             <h1 className="text-2xl font-bold text-gray-900">
                 Welcome, {user.firstname}
             </h1>
-            <p className="mt-1 text-sm text-gray-600">
-                Here is what is happening with your account.
-            </p>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-gray-600">
+                    Here is what is happening with your account.
+                </p>
+                <Link
+                    href="/dashboard/blogs/create"
+                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                    Create Blog
+                </Link>
+            </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border border-gray-200 bg-white p-5">
@@ -122,9 +130,17 @@ export default function DashboardHome() {
                         {state.error}
                     </p>
                 ) : recent.length === 0 ? (
-                    <p className="mt-3 rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-600">
-                        You have not created any blogs yet.
-                    </p>
+                    <div className="mt-3 rounded-lg border border-gray-200 bg-white p-8 text-center">
+                        <p className="text-sm text-gray-600">
+                            You have not created any blogs yet.
+                        </p>
+                        <Link
+                            href="/dashboard/blogs/create"
+                            className="mt-4 inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                        >
+                            Write your first blog
+                        </Link>
+                    </div>
                 ) : (
                     <ul className="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
                         {recent.map((blog) => (
@@ -151,10 +167,6 @@ export default function DashboardHome() {
                     </ul>
                 )}
 
-                {/* The Quick Create Blog button belongs here. /dashboard/blogs/create
-                    does not exist until Phase 11, and a button that leads to a 404
-                    is worse than no button, so Phase 11 adds it - the same rule the
-                    sidebar and the profile menu follow. */}
             </section>
         </div>
     )

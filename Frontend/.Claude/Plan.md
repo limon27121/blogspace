@@ -310,13 +310,22 @@ session, so both wait on the backend that has no `.env` yet.
 
 ---
 
-## Phase 4 — Homepage blog list `[ ]`
+## Phase 4 — Homepage blog list `[x]`
 
 **Goal:** `/` renders real blogs from the API.
 
-- [ ] `components/BlogCard.jsx` — title, category, preview, author name, author
-      avatar, created date, Read More
-- [ ] `app/page.jsx` — calls `getBlogs()`, maps to cards
+- [x] `components/BlogCard.jsx` — title, category, preview, author name, author
+      avatar, created date, Read More. `author` is a join, so a row without one
+      renders "Unknown author" instead of killing the whole list
+- [x] `app/page.jsx` — calls `getBlogs()`, maps to cards (the Phase 0
+      placeholder `page.js` is gone)
+- [x] `utils/format.js` — `formatDate` reads `createAt` and formats with a
+      fixed locale, `truncate` cuts the preview at a word boundary. Not in the
+      tree below: Phase 6 and Phase 12 need the same two functions
+- [x] `utils/api.js` — a request that never reaches the server used to throw
+      `fetch`'s own "Failed to fetch", which is raw JavaScript and §31 forbids
+      rendering it. It now becomes "Cannot reach the server. Make sure the API
+      is running." with `status: 0`
 
 Three states, all required (§32, §33):
 
@@ -337,6 +346,76 @@ backend for a shorter one. The date comes from `createAt` (that spelling, not
    and not a stack trace
 3. In devtools Network, exactly one request to `/api/blogs` per load — a second
    one means an effect is missing its dependency array
+
+**Result:** fifteen checks passed in real Chrome against the running dev server.
+The API responses were stubbed at the browser level over the devtools protocol,
+the way Playwright route-mocking works — the app itself is untouched, nothing
+fake is wired into it, and the last case used the genuinely dead backend.
+
+| Case | What was asserted |
+|---|---|
+| List | two rows render two `<article>` cards, title present, "Ada Lovelace" present, the long body ends in an ellipsis, `Read More` points at `/blogs/2` and `/blogs/1`, no skeleton left over |
+| Null `lastname` | the second author renders as "Prince" and the word "undefined" appears nowhere |
+| Date | `createAt` renders as "12 Mar 2025", never the raw ISO string |
+| Empty | `data: []` renders `No blogs found.` and zero cards |
+| Backend error | a 500 carrying `{ "message": "something went wrong" }` renders that wording, and no cards or skeletons stay on screen |
+| API down | with nothing on port 5000 the page reads "Cannot reach the server...", and "Failed to fetch" / "TypeError" appear nowhere |
+
+**On the request count:** the browser shows the request twice in development.
+That is React StrictMode mounting every component twice on purpose, not a
+missing dependency array — proven by re-running the same test with
+`reactStrictMode: false`, where the count is exactly 1 (the config was put back
+straight after). The assertion kept in the test is the one that catches the
+real bug: one *distinct* URL and never a growing list.
+
+Search is not wired here. The navbar pushes `/?title=...`, and Phase 5 is what
+makes the homepage read it — until then the URL changes and the list does not.
+
+### The backend needed one change before any of this worked in a browser
+
+With the API running, the page still showed "Cannot reach the server". The
+request was not failing — the browser was refusing to hand the response to the
+page:
+
+```
+Access to fetch at 'http://localhost:5000/api/blogs' from origin
+'http://localhost:3000' has been blocked by CORS policy: No
+'Access-Control-Allow-Origin' header is present on the requested resource.
+```
+
+`Backend/app.js` had no CORS middleware. Nothing in the backend assignment
+caught it, because curl, Postman and newman do not enforce CORS — only browsers
+do, and this frontend is the first browser to call that API.
+
+Fixed in the backend: `npm i cors`, then `app.use(cors({ ... }))` above
+`express.json()`, allowing the origins in `CORS_ORIGIN` (default
+`http://localhost:3000`) with `Authorization` in `allowedHeaders` — without
+that header named, the preflight for every authenticated call in Phase 8 onward
+would be refused. `credentials` stays off: the token travels in a header, not
+a cookie. `CORS_ORIGIN` was added to `Backend/.env.example`; the README in
+Phase 19 has to mention it.
+
+Verified against the real stack afterwards: `/` renders every blog the API
+returns (12 rows from MySQL), no error banner, no leftover skeleton, no
+"undefined" and no "Invalid Date".
+
+### One more thing the browser showed: the page was unreadable in dark mode
+
+On a machine set to a dark colour scheme the whole page went black while every
+heading stayed `text-gray-900`, so "Latest Blogs" was near-invisible.
+
+Two things caused it together. `app/globals.css` shipped from
+`create-next-app` with a `prefers-color-scheme: dark` block that swaps
+`--background` to `#0a0a0a`, and the `body { background: var(--background) }`
+rule that reads it is **unlayered** CSS while Tailwind utilities live inside
+`@layer utilities` — an unlayered rule beats a layered one no matter how
+specific the layered one is, so `className="bg-gray-50"` on `<body>` never
+stood a chance.
+
+The app has one light design and no dark variant of it, so the swap is gone:
+`:root` now holds `--background: #f9fafb` (the gray-50 the layout already
+names) and `#171717`, with no media query. Checked with the colour scheme
+emulated as dark — body renders `rgb(249, 250, 251)` and the heading is legible.
 
 ---
 

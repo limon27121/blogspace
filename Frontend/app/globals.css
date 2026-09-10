@@ -1,7 +1,17 @@
 @import "tailwindcss";
 
+/* One light palette, deliberately. The design is a light one — white cards,
+   gray-900 headings — and there is no dark variant of it anywhere in the app.
+   The generated stylesheet used to swap these two values under
+   `prefers-color-scheme: dark`, which painted the page black while every
+   heading stayed near-black and disappeared.
+
+   The `body` rule below is unlayered CSS, and Tailwind's utilities live inside
+   `@layer utilities`. Unlayered rules beat layered ones no matter how specific
+   the layered one is, so `className="bg-gray-50"` on <body> loses to this rule
+   — which is why the swap won even with the utility class present. */
 :root {
-  --background: #ffffff;
+  --background: #f9fafb; /* gray-50, matching the body class in layout.jsx */
   --foreground: #171717;
 }
 
@@ -12,15 +22,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }

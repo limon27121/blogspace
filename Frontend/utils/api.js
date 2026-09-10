@@ -27,11 +27,24 @@ export async function apiFetch(path, { method = "GET", body, auth = true } = {})
     const isForm = typeof FormData !== "undefined" && body instanceof FormData
     if (body && !isForm) headers["Content-Type"] = "application/json"
 
-    const res = await fetch(`${BASE}${path}`, {
-        method,
-        headers,
-        body: isForm ? body : body ? JSON.stringify(body) : undefined,
-    })
+    let res
+    try {
+        res = await fetch(`${BASE}${path}`, {
+            method,
+            headers,
+            body: isForm ? body : body ? JSON.stringify(body) : undefined,
+        })
+    } catch {
+        // the request never reached the server: API down, wrong port, DNS, or
+        // the browser blocked it. fetch throws a TypeError whose message is
+        // raw JavaScript ("Failed to fetch"), and §31 says that must never be
+        // rendered — replace it with something a reader can act on
+        const offline = new Error(
+            "Cannot reach the server. Make sure the API is running.",
+        )
+        offline.status = 0 // no HTTP status exists for a request never sent
+        throw offline
+    }
 
     // an error body is still JSON, but a 500 behind a dead proxy may not be,
     // so a parse failure must not replace the real status with a syntax error

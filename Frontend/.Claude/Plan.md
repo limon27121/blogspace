@@ -868,16 +868,23 @@ reading "Publishing..." forever.
 
 ---
 
-## Phase 12 — Blog management and delete `[ ]`
+## Phase 12 — Blog management and delete `[x]`
 
 **Goal:** `/dashboard/blogs` (§17, §19).
 
-- [ ] Table: Title, Category, Author, Created, Actions
-- [ ] Normal user sees only their own blogs; admin sees all (§4 sidebar naming)
-- [ ] `components/ConfirmDialog.jsx`
-- [ ] Delete calls `DELETE /api/blogs/delete/:id` after confirmation
-- [ ] Success feedback, then refresh the list
-- [ ] Empty state: `You haven't created any blogs yet.`
+- [x] Table: Title, Category, Author, Created, Actions — the wrapper scrolls,
+      not the page, so a wide table never pushes the layout sideways (§34)
+- [x] Normal user sees only their own blogs; admin sees all. The heading and the
+      sidebar item both read **All Blogs** for an admin and **My Blogs**
+      otherwise (§4)
+- [x] `components/ConfirmDialog.jsx` — rendered only while open, cancels on
+      Escape and on a click outside, and cannot be dismissed mid-request
+- [x] Delete calls `DELETE /api/blogs/delete/:id` after confirmation
+- [x] Success feedback, then **re-read** the list rather than splicing the row
+      out locally, so what is on screen is what the server holds
+- [x] Empty state: `You haven't created any blogs yet.`
+- [x] The create page now redirects here, and the sidebar item is wired up
+- [ ] Edit action — **Phase 13**, which creates `/dashboard/blogs/[id]/edit`
 
 The list comes from `getBlogs()` filtered by `author.id === user.id` for a
 normal user. Do not send a `userId` query parameter — the backend does not
@@ -890,6 +897,24 @@ support one.
 3. Delete asks first, and Cancel really cancels — reload and the blog is there
 4. Confirming removes the row without a manual refresh
 5. Delete is not offered on another user's blog for a normal user
+
+**Result:** 31 checks passed in real Chrome against the real API and database.
+Three accounts (two authors and an admin) and five blogs were created through
+the real endpoints and deleted afterwards. Nothing was stubbed.
+
+| Group | What was asserted |
+|---|---|
+| Ownership | Alice sees her 3 rows and none of Bob's 2; the five column headers are exactly Title, Category, Author, Created, Actions |
+| Cancel | the dialog names the blog, **Cancel sends no request at all**, Escape closes it too, and the blog is still there after a reload |
+| Delete | confirming calls `DELETE /api/blogs/delete/:id` **once**, the row disappears with no manual reload, the list shrinks by one, a success notice appears, and the blog is gone from `GET /api/blogs` |
+| Authorisation | Alice deleting Bob's blog straight through the API is refused **403**, and the blog survives — the frontend never offers the button, and the backend would refuse anyway |
+| Empty | with her last blog gone the page reads `You haven't created any blogs yet.` and offers a way to write one |
+| Admin | sees every blog on the site including Bob's, heading and sidebar read **All Blogs**, the Author column is filled in, and deleting someone else's blog succeeds |
+| Responsive | no horizontal overflow at 375px, and the table scrolls inside its own `overflow-x: auto` container |
+
+One test bug worth noting: the first run failed the header check because
+`innerText` returns *painted* text and the header row is styled
+`uppercase` — the assertion was wrong, not the table.
 
 ---
 

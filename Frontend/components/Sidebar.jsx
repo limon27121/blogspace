@@ -9,12 +9,14 @@ import { useAuth } from "@/contexts/AuthContext"
 /**
  * Only routes that exist are listed. The rest of the menu arrives with the
  * page it points at, so nothing here ever leads to a 404:
- *   My Blogs      -> Phase 12  (/dashboard/blogs)
  *   Profile       -> Phase 14  (/dashboard/profile)
  *   Change Password -> Phase 15 (/dashboard/change-password)
  */
 const USER_LINKS = [
     { href: "/dashboard", label: "Dashboard" },
+    // "My Blogs" for a normal user, "All Blogs" for an admin: the page shows
+    // every blog to an admin (§4), and the menu should not claim otherwise
+    { href: "/dashboard/blogs", label: "My Blogs", adminLabel: "All Blogs" },
     { href: "/dashboard/blogs/create", label: "Create Blog" },
 ]
 
@@ -42,8 +44,17 @@ export default function Sidebar() {
     const item = (link) => {
         // startsWith so /dashboard/blogs/3/edit still marks My Blogs, but an
         // exact match for /dashboard itself, which is a prefix of every route
-        const isActive =
-            link.href === "/dashboard" ? pathname === link.href : pathname.startsWith(link.href)
+        // /dashboard/blogs/create starts with /dashboard/blogs, so a plain
+        // startsWith would light up two rows at once. Only the longest matching
+        // link is the active one.
+        const matches = links
+            .filter((candidate) =>
+                candidate.href === "/dashboard"
+                    ? pathname === candidate.href
+                    : pathname === candidate.href || pathname.startsWith(candidate.href + "/"),
+            )
+            .sort((a, b) => b.href.length - a.href.length)
+        const isActive = matches[0]?.href === link.href
 
         return (
             <Link
@@ -56,7 +67,7 @@ export default function Sidebar() {
                         : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                 }`}
             >
-                {link.label}
+                {user?.role === "admin" && link.adminLabel ? link.adminLabel : link.label}
             </Link>
         )
     }

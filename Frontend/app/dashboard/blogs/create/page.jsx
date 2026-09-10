@@ -15,10 +15,7 @@ export default function CreateBlogPage() {
         setFormError("")
         try {
             await createBlog(values)
-            // Phase 12 changes this to /dashboard/blogs, the list it belongs on.
-            // Until that page exists the dashboard is the honest destination:
-            // the new blog shows up there in the count and in Recent blogs.
-            router.push("/dashboard")
+            router.push("/dashboard/blogs")
         } catch (err) {
             // the backend's own wording, e.g. "blogTitle cannot be empty"
             setFormError(err.message)
@@ -29,10 +26,10 @@ export default function CreateBlogPage() {
     return (
         <div className="max-w-3xl">
             <Link
-                href="/dashboard"
+                href="/dashboard/blogs"
                 className="text-sm font-medium text-blue-600 hover:text-blue-700"
             >
-                &larr; Back to dashboard
+                &larr; Back to my blogs
             </Link>
 
             <h1 className="mt-4 text-2xl font-bold text-gray-900">Create a blog</h1>

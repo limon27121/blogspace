@@ -26,3 +26,20 @@ export const login = ({ email, password }) =>
         body: { email, password },
         auth: false,
     })
+
+/**
+ * POST /api/auth/forgot-password — public.
+ *
+ * The reply is deliberately the same whether or not the address is registered,
+ * so nothing here can be used to find out which emails exist. The token never
+ * comes back in the response; it travels by email.
+ *
+ * @param {string} email
+ * @returns {Promise<{message: string}>}
+ */
+export const forgotPassword = (email) =>
+    apiFetch("/auth/forgot-password", {
+        method: "POST",
+        body: { email },
+        auth: false,
+    })

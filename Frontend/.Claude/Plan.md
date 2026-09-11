@@ -1257,20 +1257,34 @@ passed through to the backend, which answers them properly.
 
 ---
 
-## Phase 19 — Repository hygiene, README, submission `[ ]`
+## Phase 19 — Repository hygiene, README, submission `[~]`
 
-- [ ] `.gitignore` covers `node_modules/`, `.next/`, `.env.local`
-- [ ] `.env.example` committed with `NEXT_PUBLIC_API_URL=` and no real value
-- [ ] `git status` shows neither `node_modules` nor `.env.local`
-- [ ] Screenshots of the major pages (§43): home, blog detail, login, register,
-      dashboard, blog list, create blog, profile, change password, admin users
-- [ ] README (§44): overview, features, tech stack, install, env table, how to
+- [x] `.gitignore` covers `node_modules/`, `.next/`, `.env.local`
+      (`git check-ignore -v` names the rule for each: `/node_modules`,
+      `/.next/`, `.env*`)
+- [x] `.env.example` committed with `NEXT_PUBLIC_API_URL=` and no real value
+- [x] `git status` shows neither `node_modules` nor `.env.local` — and
+      `git ls-files` confirms neither was ever committed
+- [~] Screenshots of the major pages (§43), in `Pictures/blog/`: home, category
+      filter, blog detail, login, register, forgot password, dashboard, create
+      blog, profile, profile menu, change password. **Still missing: the blog
+      list (`/dashboard/blogs`) and admin users (`/admin/users`)**
+- [x] README (§44): overview, features, tech stack, install, env table, how to
       run, **the backend dependency and how to start it**, route table, user vs
       admin functionality, screenshots
 - [ ] Push, then open the repo URL in a private window to confirm it is public
 
 The README must say the backend has to be running and on which port. A grader
 who opens the frontend against a dead API sees an error page and no data.
+
+The README replaces the `create-next-app` one. It states the backend variables
+this app depends on — `PORT`, `CORS_ORIGIN` (Phase 4's fix), `FRONTEND_URL` —
+and how to create an admin, since no endpoint grants the role.
+
+**Open from Phase 17:** the backend emails a link to
+`${FRONTEND_URL}/reset-password/:token`, but `app/reset-password/[token]/page.jsx`
+does not exist, so that link lands on a 404. The README's route table leaves it
+out rather than list a page that is not there.
 
 ---
 

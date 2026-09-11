@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { Op } from "sequelize";
 import { User } from "../models/index.js";
 import { ServiceError } from "../middlewares/error.middleware.js";
 
@@ -135,4 +136,57 @@ export const request_password_reset = async ({ email }) => {
     // asking again invalidates the previous link, because the column holds one
     // hash and this overwrote it
     return { user, token }
+}
+
+/**
+ * Finish a password reset.
+ *
+ * The token arrives raw in the url; only its hash is stored, so it is hashed
+ * again here and matched against the column. One statement covers both halves
+ * of "valid": the hash matches, and the expiry is still ahead of now.
+ *
+ * @param {{ token: string, password: string }} params
+ * @returns {Promise<{ id: number }>}
+ */
+export const reset_password = async ({ token, password }) => {
+    // "invalid or expired" for every failure below: a caller poking at this
+    // endpoint learns nothing about which tokens exist or when they ran out
+    const invalid = () => new ServiceError(400, "the reset link is invalid or has expired")
+
+    if (typeof token !== "string" || !/^[0-9a-f]{64}$/.test(token)) {
+        throw invalid()
+    }
+
+    // the password rule is checked before the token is spent, so a link is not
+    // burned by a password the backend was going to refuse anyway
+    if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
+        throw new ServiceError(400, `password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+    }
+
+    const user = await User.scope("withResetToken").findOne({
+        where: {
+            resetTokenHash: hash_reset_token(token),
+            resetTokenExpiry: { [Op.gt]: new Date() },
+        },
+    })
+
+    if (!user) throw invalid()
+
+    // the account could have been deactivated after the link was sent, and a
+    // reset must not quietly restore access to a disabled account
+    if (!user.isActive) {
+        throw new ServiceError(403, "this account has been deactivated")
+    }
+
+    user.password = await hash_password(password)
+
+    // single use: clearing these is what stops the same link working twice, and
+    // it happens in the same save as the new password
+    user.resetTokenHash = null
+    user.resetTokenExpiry = null
+    await user.save()
+
+    // the row now carries a fresh hash, so returning it would leak that hash.
+    // Only the id goes back, as in update_password
+    return { id: user.id }
 }

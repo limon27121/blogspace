@@ -1,4 +1,9 @@
-import { register_user, login_user, request_password_reset } from "../Services/auth.service.js";
+import {
+    register_user,
+    login_user,
+    request_password_reset,
+    reset_password,
+} from "../Services/auth.service.js";
 import { send_password_reset_email } from "../Services/mailer.service.js";
 import { send_error } from "../middlewares/error.middleware.js";
 
@@ -60,6 +65,27 @@ export const forgot_password = async (req, res) => {
         // one would let anyone enumerate accounts
         res.status(200).json({
             message: "if that email is registered, a reset link has been sent",
+        })
+    } catch (error) {
+        send_error(res, error)
+    }
+}
+
+// PATCH /api/auth/reset-password/:token
+// public: the token in the url is the credential, which is the whole point of
+// this endpoint - the caller cannot log in
+export const reset_password_with_token = async (req, res) => {
+    try {
+        const { password } = req.body
+
+        const { id } = await reset_password({
+            token: req.params.token,
+            password,
+        })
+
+        res.status(200).json({
+            message: "password reset successfully",
+            data: { id },
         })
     } catch (error) {
         send_error(res, error)
